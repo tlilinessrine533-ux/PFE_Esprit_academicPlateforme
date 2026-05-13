@@ -1,0 +1,298 @@
+<div class="page-shell">
+  <section class="panel page-header">
+    <div>
+      <p class="eyebrow">Reporting</p>
+      <h1 class="section-title">Generation et historique des rapports</h1>
+    </div>
+    <div class="page-header-actions">
+      <button class="ghost-button" type="button" (click)="loadPageData()" [disabled]="loading()">
+        {{ loading() ? 'Chargement...' : 'Actualiser' }}
+      </button>
+      <button
+        class="ghost-button icon-only-button icon-dashboard dashboard-toggle-button"
+        [class.is-active]="showReportsDashboard()"
+        type="button"
+        (click)="toggleReportsDashboard()"
+        [title]="showReportsDashboard() ? 'Masquer Dashboard Reporting' : 'Afficher Dashboard Reporting'"
+        [attr.aria-label]="showReportsDashboard() ? 'Masquer Dashboard Reporting' : 'Afficher Dashboard Reporting'"
+      ></button>
+    </div>
+  </section>
+
+  @if (errorMessage()) {
+    <div class="error-banner">{{ errorMessage() }}</div>
+  }
+
+  @if (successMessage()) {
+    <div class="success-banner">{{ successMessage() }}</div>
+  }
+
+  @if (showReportsDashboard()) {
+    @if (isSuperAdmin()) {
+      <section class="summary-grid summary-grid--single">
+        <article class="panel summary-card summary-brand">
+          <p class="eyebrow">Rapports globaux</p>
+          <strong>{{ visibleReports().length }}</strong>
+          <span>Rapports generes</span>
+          <small>Volume total des rapports institutionnels disponibles.</small>
+        </article>
+      </section>
+
+      <section class="reports-dashboard-grid reports-dashboard-grid--single">
+        <app-chart-panel
+          title="Rapports dans le temps"
+          subtitle="Evolution sur les 6 derniers mois."
+          type="line"
+          [data]="reportPeriodTrendChartData()"
+          [height]="280"
+          [legend]="false"
+        ></app-chart-panel>
+      </section>
+    } @else {
+      <section class="summary-grid">
+        <article class="panel summary-card summary-brand">
+          <p class="eyebrow">Synthese</p>
+          <strong>{{ visibleReports().length }}</strong>
+          <span>Rapports generes</span>
+          <small>Total des livrables disponibles dans l'historique.</small>
+        </article>
+        <article class="panel summary-card">
+          <p class="eyebrow">Formats</p>
+          <strong>{{ totalPdfReports() }}</strong>
+          <span>Rapports PDF</span>
+          <small>{{ totalExcelReports() }} rapport(s) Excel egalement disponibles.</small>
+        </article>
+        <article class="panel summary-card">
+          <p class="eyebrow">Annees universitaires</p>
+          <strong>{{ distinctPeriodsCount() }}</strong>
+          <span>Annees distinctes</span>
+          <small>Les rapports peuvent etre filtres et regeneres par annee universitaire.</small>
+        </article>
+      </section>
+
+      <section class="reports-dashboard-grid">
+        <app-chart-panel
+          title="Formats des rapports"
+          subtitle="Distribution PDF vs Excel."
+          type="doughnut"
+          [data]="reportFormatChartData()"
+          [height]="280"
+        ></app-chart-panel>
+        <app-chart-panel
+          title="Volumes par type"
+          subtitle="Bar chart des types de rapports disponibles."
+          type="bar"
+          [data]="reportTypeChartData()"
+          [height]="280"
+          [legend]="false"
+        ></app-chart-panel>
+        <app-chart-panel
+          title="Evolution par periode"
+          subtitle="Line chart des periodes universitaires recentes."
+          type="line"
+          [data]="reportPeriodTrendChartData()"
+          [height]="280"
+          [legend]="false"
+        ></app-chart-panel>
+      </section>
+    }
+  }
+
+  <section class="generator-layout">
+    <section class="panel">
+      <p class="eyebrow">Generation</p>
+      <h2 class="section-title">Creer un rapport</h2>
+
+      <form class="report-form" [formGroup]="reportForm">
+        <label class="field">
+          <span>Annee universitaire</span>
+          <input formControlName="periodLabel" />
+        </label>
+
+        @if (canGenerateDepartment()) {
+          <label class="field">
+            <span>Departement cible</span>
+            <input [value]="selectedDepartmentLabel()" disabled />
+          </label>
+        }
+
+        <div class="generation-groups">
+          @if (canGenerateIndividual()) {
+            <div class="generation-group">
+              <p class="eyebrow">Individuel</p>
+              <div class="action-row">
+                <button class="primary-button" type="button" (click)="generatePdf()" [disabled]="isGenerating('individual-pdf')">
+                  {{ isGenerating('individual-pdf') ? 'Generation PDF...' : 'PDF individuel' }}
+                </button>
+                <button class="ghost-button" type="button" (click)="generateExcel()" [disabled]="isGenerating('individual-excel')">
+                  {{ isGenerating('individual-excel') ? 'Generation Excel...' : 'Excel individuel' }}
+                </button>
+              </div>
+            </div>
+          }
+
+          @if (canGenerateDepartment()) {
+            <div class="generation-group">
+              <p class="eyebrow">Departemental</p>
+              <div class="action-row">
+                <button class="primary-button" type="button" (click)="generateDepartmentPdf()" [disabled]="isGenerating('department-pdf')">
+                  {{ isGenerating('department-pdf') ? 'Generation PDF...' : 'PDF departemental' }}
+                </button>
+                <button class="ghost-button" type="button" (click)="generateDepartmentExcel()" [disabled]="isGenerating('department-excel')">
+                  {{ isGenerating('department-excel') ? 'Generation Excel...' : 'Excel departemental' }}
+                </button>
+              </div>
+            </div>
+          }
+
+          @if (canGenerateInstitution()) {
+            <div class="generation-group">
+              <p class="eyebrow">Institutionnel</p>
+              <div class="action-row">
+                <button class="primary-button" type="button" (click)="generateInstitutionPdf()" [disabled]="isGenerating('institution-pdf')">
+                  {{ isGenerating('institution-pdf') ? 'Generation PDF...' : 'PDF institutionnel' }}
+                </button>
+                <button class="ghost-button" type="button" (click)="generateInstitutionExcel()" [disabled]="isGenerating('institution-excel')">
+                  {{ isGenerating('institution-excel') ? 'Generation Excel...' : 'Excel institutionnel' }}
+                </button>
+              </div>
+            </div>
+          }
+        </div>
+      </form>
+    </section>
+  </section>
+
+  <section class="panel">
+    <p class="eyebrow">Filtres</p>
+    <div class="filters-grid">
+      <label class="field">
+        <span>Recherche</span>
+        <input
+          [value]="searchTerm()"
+          (input)="updateSearchTerm($any($event.target).value)"
+          placeholder="Annee universitaire, type ou departement"
+        />
+      </label>
+      <label class="field">
+        <span>Format</span>
+        <select [value]="formatFilter()" (change)="updateFormatFilter($any($event.target).value)">
+          @for (format of formatFilters; track format) {
+            <option [value]="format">{{ format }}</option>
+          }
+        </select>
+      </label>
+      <label class="field">
+        <span>Type</span>
+        <select [value]="typeFilter()" (change)="updateTypeFilter($any($event.target).value)">
+          @for (type of typeFilters; track type) {
+            <option [value]="type">{{ reportTypeLabel(type) }}</option>
+          }
+        </select>
+      </label>
+    </div>
+  </section>
+
+  @if (latestReport(); as latest) {
+    <section class="panel latest-report-card">
+      <div>
+        <p class="eyebrow">Dernier livrable</p>
+        <h2 class="section-title">{{ reportTypeLabel(latest.reportType) }}</h2>
+        <p class="section-copy">
+          Genere le {{ latest.generatedAt | date: 'dd/MM/yyyy a HH:mm' }} pour l'annee universitaire
+          <strong>{{ latest.periodLabel }}</strong>.
+        </p>
+        @if (latest.departmentName) {
+          <p class="section-copy">Departement concerne : <strong>{{ latest.departmentName }}</strong>.</p>
+        }
+      </div>
+
+      <div class="latest-report-meta">
+        <span class="format-pill format-{{ reportFormatTone(latest.reportFormat) }}">{{ latest.reportFormat }}</span>
+        <button class="primary-button" type="button" (click)="downloadReport(latest)">Telecharger le dernier rapport</button>
+      </div>
+    </section>
+  }
+
+  <section class="reports-layout">
+    <section class="panel">
+      <div class="history-header">
+        <div class="history-header-copy">
+          <p class="eyebrow">Historique</p>
+          <h2 class="section-title">Rapports deja generes</h2>
+        </div>
+
+        @if (hasHistoryToggle()) {
+          <button
+            class="ghost-button icon-only-button history-toggle-button"
+            [class.is-expanded]="showFullHistory()"
+            type="button"
+            (click)="toggleHistoryVisibility()"
+            [title]="historyToggleLabel()"
+            [attr.aria-label]="historyToggleLabel()"
+          ></button>
+        }
+      </div>
+
+      <div class="table-wrapper">
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>ID</th>
+              <th>Type</th>
+              <th>Format</th>
+              <th>Annee universitaire</th>
+              <th>Date</th>
+              <th>Action</th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (report of displayedReports(); track report.id) {
+              <tr>
+                <td>#{{ report.id }}</td>
+                <td>{{ reportTypeLabel(report.reportType) }}</td>
+                <td><span class="format-pill format-{{ reportFormatTone(report.reportFormat) }}">{{ report.reportFormat }}</span></td>
+                <td>
+                  {{ report.periodLabel }}
+                  @if (report.departmentName) {
+                    <div class="table-meta">{{ report.departmentName }}</div>
+                  }
+                </td>
+                <td>{{ report.generatedAt | date: 'dd/MM/yyyy HH:mm' }}</td>
+                <td>
+                  <button class="link-button" type="button" (click)="downloadReport(report)">Telecharger</button>
+                </td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <section class="panel side-insights">
+      <div>
+        <p class="eyebrow">Par type</p>
+        <div class="mini-stats">
+          @for (item of typeBreakdown(); track item.type) {
+            <article class="mini-stat-card">
+              <strong>{{ item.count }}</strong>
+              <span>{{ reportTypeLabel(item.type) }}</span>
+            </article>
+          }
+        </div>
+      </div>
+
+      <div>
+        <p class="eyebrow">Annees universitaires recentes</p>
+        <div class="timeline-list">
+          @for (item of periodBreakdown(); track item.periodLabel) {
+            <article class="timeline-item">
+              <strong>{{ item.periodLabel }}</strong>
+              <span>{{ item.count }} rapport(s)</span>
+            </article>
+          }
+        </div>
+      </div>
+    </section>
+  </section>
+</div>

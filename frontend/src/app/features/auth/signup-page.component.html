@@ -1,0 +1,122 @@
+﻿<div class="signup-shell">
+  <section class="signup-stage" aria-label="Demande de creation de compte">
+    <div class="signup-brand-block">
+      <div class="brand-logo-wrap">
+        <img class="brand-logo" src="/logo-esprit-ariana.jpg" alt="ESPRIT logo" />
+      </div>
+      <p class="platform-label">Plateforme de suivi des activites academiques</p>
+    </div>
+
+    <section class="signup-panel">
+      <div class="signup-panel__header">
+        <p class="eyebrow">Inscription</p>
+        <h1>Demande de creation de compte</h1>
+        <p>
+          Remplissez ce formulaire. La demande sera envoyee au super-administrateur, qui pourra accepter la creation
+          du compte ou la rejeter.
+        </p>
+      </div>
+
+      @if (signupErrorMessage()) {
+        <div class="error-banner">{{ signupErrorMessage() }}</div>
+      }
+
+      @if (signupSuccessMessage()) {
+        <div class="success-banner">{{ signupSuccessMessage() }}</div>
+      }
+
+      <form class="signup-form" [formGroup]="signupForm" (ngSubmit)="submitSignupRequest()" novalidate>
+        <label class="field">
+          <span>Prenom</span>
+          <input formControlName="firstName" autocomplete="given-name" />
+        </label>
+
+        <label class="field">
+          <span>Nom</span>
+          <input formControlName="lastName" autocomplete="family-name" />
+        </label>
+
+        <label class="field full-width">
+          <span>Email institutionnel</span>
+          <input type="email" formControlName="email" autocomplete="email" placeholder="prenom.nom@esprit.tn" />
+
+          @if (hasSignupEmailError() && signupForm.controls.email.touched) {
+            <p class="field-help field-help--error">Veuillez utiliser une adresse mail correspondante &agrave; l'organisme esprit.tn.</p>
+          } @else {
+            <p class="field-help">Seules les adresses institutionnelles ESPRIT au format ...@esprit.tn sont acceptees.</p>
+          }
+        </label>
+
+        <label class="field">
+          <span>Role demande</span>
+          <select formControlName="role">
+            @for (role of roleOptions; track role.value) {
+              <option [value]="role.value">{{ role.label }}</option>
+            }
+          </select>
+
+          @if (hasSignupRoleError() && signupForm.controls.role.touched) {
+            <p class="field-help field-help--error">Veuillez choisir un role.</p>
+          }
+        </label>
+
+        <div class="field full-width">
+          <span>Departement</span>
+          <select formControlName="departmentName">
+            <option value="">Selectionnez un departement</option>
+            @for (department of departmentOptions; track department.code) {
+              <option [value]="department.name">{{ department.name }}</option>
+            }
+          </select>
+
+          @if (selectedDepartmentOption(); as selectedDepartment) {
+            <p class="field-help">
+              Parcours associes : {{ selectedDepartment.specialties.join(', ') }}.
+            </p>
+          } @else {
+            <p class="field-help">Choisissez le departement qui correspond a votre rattachement.</p>
+          }
+
+          @if (departmentsLoading()) {
+            <p class="field-help">Synchronisation de la liste des departements...</p>
+          }
+
+          @if (hasSignupDepartmentError() && signupForm.controls.departmentName.touched) {
+            <p class="field-help field-help--error">Veuillez renseigner un departement.</p>
+          }
+        </div>
+
+        <label class="field">
+          <span>Mot de passe</span>
+          <input type="password" formControlName="password" autocomplete="new-password" />
+        </label>
+
+        <label class="field">
+          <span>Confirmer le mot de passe</span>
+          <input type="password" formControlName="confirmPassword" autocomplete="new-password" />
+        </label>
+
+        @if (hasSignupPasswordStrengthError()) {
+          <p class="field-help field-help--error full-width signup-form__feedback">
+            Le mot de passe doit contenir au minimum 8 caracteres et au moins 1 caractere special
+            (par exemple : !, @, #, $, %).
+          </p>
+        }
+
+        @if (hasSignupPasswordMismatch()) {
+          <p class="field-help field-help--error full-width signup-form__feedback">Les mots de passe ne correspondent pas.</p>
+        }
+
+        <div class="signup-actions full-width">
+          <button class="ghost-button signup-cancel-button" type="button" (click)="goBackToLogin()">Annuler</button>
+          <button class="primary-button signup-submit-button" type="submit" [disabled]="signupSubmitting()">
+            {{ signupSubmitting() ? 'Envoi...' : 'Envoyer la demande' }}
+          </button>
+        </div>
+      </form>
+    </section>
+
+    <p class="login-footer">2026 ESPRIT. Tous droits reserves.</p>
+  </section>
+</div>
+

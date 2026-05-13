@@ -1,0 +1,342 @@
+[
+  {
+    "route": "/login",
+    "aliases": [
+      "/",
+      "/signup"
+    ],
+    "title": "Connexion",
+    "description": "Page de connexion avec authentification classique, verification 2FA et option de reconnaissance faciale.",
+    "keywords": ["connexion", "authentification", "2FA", "face recognition", "compte"],
+    "faqHints": [
+      "Comment me connecter avec mon email esprit.tn ?",
+      "Pourquoi on me demande un code de verification apres le mot de passe ?",
+      "Comment revenir de la connexion faciale vers la connexion classique ?"
+    ],
+    "allowedRoles": ["UNAUTHENTICATED"],
+    "mainActions": [
+      "Se connecter par email et mot de passe",
+      "Valider un code 2FA",
+      "Se connecter par reconnaissance faciale",
+      "Acceder a la recuperation de mot de passe"
+    ],
+    "notes": "Les utilisateurs deja authentifies sont rediriges vers leur espace par role."
+  },
+  {
+    "route": "/forgot-password",
+    "aliases": [],
+    "title": "Recuperation de mot de passe",
+    "description": "Parcours de recuperation de compte avec demande de code puis definition d'un nouveau mot de passe.",
+    "keywords": ["mot de passe oublie", "recuperation", "code", "reinitialisation"],
+    "faqHints": [
+      "Comment recevoir un code de reinitialisation ?",
+      "Ou saisir le code recu pour changer mon mot de passe ?",
+      "Que faire si le code de recuperation ne marche pas ?"
+    ],
+    "allowedRoles": ["UNAUTHENTICATED"],
+    "mainActions": [
+      "Demander un code de reinitialisation",
+      "Confirmer le code et definir un nouveau mot de passe",
+      "Revenir a la page de connexion"
+    ],
+    "notes": "Apres confirmation reussie, la session peut etre ouverte automatiquement."
+  },
+  {
+    "route": "/dashboard",
+    "aliases": [],
+    "title": "Tableau de bord",
+    "description": "Vue de pilotage des indicateurs de performance academique adaptee au role utilisateur.",
+    "keywords": ["dashboard", "indicateurs", "performance", "KPI", "statistiques"],
+    "faqHints": [
+      "Comment lire mes indicateurs de performance ?",
+      "Pourquoi je ne vois pas les memes graphiques qu'un autre role ?",
+      "Ou voir les activites recentes dans le tableau de bord ?"
+    ],
+    "allowedRoles": ["ENSEIGNANT", "CHEF_DEPARTEMENT", "ADMINISTRATION"],
+    "mainActions": [
+      "Consulter les indicateurs de performance",
+      "Analyser les volumes d'activites",
+      "Voir les activites recentes selon le role",
+      "Acceder rapidement au workflow ou aux rapports"
+    ],
+    "notes": "Le contenu varie selon le perimetre personnel, departemental ou institutionnel."
+  },
+  {
+    "route": "/teaching",
+    "aliases": [
+      "/teaching/new",
+      "/partnerships",
+      "/partnerships/new"
+    ],
+    "title": "Enseignement et partenariats",
+    "description": "Gestion des declarations d'enseignement et de partenariat avec calcul de points et suivi de statut.",
+    "keywords": ["enseignement", "cours", "partenariat", "points", "declaration"],
+    "faqHints": [
+      "Comment ajouter une nouvelle activite d'enseignement ?",
+      "Comment declarer un partenariat academique ou professionnel ?",
+      "Pourquoi je ne peux plus modifier une declaration soumise ?"
+    ],
+    "allowedRoles": ["ENSEIGNANT", "CHEF_DEPARTEMENT"],
+    "mainActions": [
+      "Creer une declaration d'enseignement ou partenariat",
+      "Previsualiser les points declares",
+      "Filtrer et consulter l'historique",
+      "Modifier, supprimer ou soumettre selon le statut"
+    ],
+    "notes": "Les routes partenariats reutilisent le module enseignement avec filtres et type forces."
+  },
+  {
+    "route": "/supervision",
+    "aliases": [
+      "/supervision/new"
+    ],
+    "title": "Encadrements",
+    "description": "Module de suivi des encadrements (PFE et autres) avec quantites, roles et points.",
+    "keywords": ["encadrement", "PFE", "jury", "supervision", "points"],
+    "faqHints": [
+      "Comment declarer un encadrement PFE ?",
+      "Quelle est la difference entre encadrant, rapporteur et president de jury ?",
+      "Comment soumettre un encadrement pour validation ?"
+    ],
+    "allowedRoles": ["ENSEIGNANT", "CHEF_DEPARTEMENT"],
+    "mainActions": [
+      "Ajouter un encadrement",
+      "Renseigner type, role et statut",
+      "Consulter les resumes et l'historique",
+      "Modifier, supprimer ou soumettre selon les droits"
+    ],
+    "notes": "Certaines categories imposent des regles de quantite minimales."
+  },
+  {
+    "route": "/research",
+    "aliases": [
+      "/research/new"
+    ],
+    "title": "Recherche et developpement",
+    "description": "Declaration des activites de recherche avec regles de saisie dynamiques selon le type de production.",
+    "keywords": ["recherche", "publication", "classement", "doi", "developpement"],
+    "faqHints": [
+      "Comment declarer une publication avec classement Q1-Q4 ?",
+      "Quels champs sont obligatoires pour un projet de developpement ?",
+      "Comment corriger une activite de recherche retournee en A corriger ?"
+    ],
+    "allowedRoles": ["ENSEIGNANT", "CHEF_DEPARTEMENT"],
+    "mainActions": [
+      "Creer une activite de recherche",
+      "Saisir les informations requises par type",
+      "Filtrer et consulter l'historique",
+      "Modifier, supprimer ou soumettre selon le statut"
+    ],
+    "notes": "Le calcul des points depend du type de recherche et du rang de publication."
+  },
+  {
+    "route": "/events",
+    "aliases": [
+      "/events/new"
+    ],
+    "title": "Evenements academiques",
+    "description": "Declaration et suivi des evenements scientifiques et académiques.",
+    "keywords": ["evenements", "seminaire", "workshop", "organisation", "activites"],
+    "faqHints": [
+      "Comment ajouter un evenement academique ?",
+      "Quand dois-je choisir le role Organisation ou Membre ?",
+      "Comment soumettre un evenement pour validation ?"
+    ],
+    "allowedRoles": ["ENSEIGNANT", "CHEF_DEPARTEMENT"],
+    "mainActions": [
+      "Creer un evenement",
+      "Choisir type, date et role",
+      "Filtrer l'historique des declarations",
+      "Modifier, supprimer ou soumettre selon le statut"
+    ],
+    "notes": "Pour les evenements scientifiques, le role peut impacter la valorisation en points."
+  },
+  {
+    "route": "/exam-surveillance",
+    "aliases": [
+      "/exam-surveillance/new"
+    ],
+    "title": "Surveillance des examens",
+    "description": "Suivi des declarations de surveillance d'examens par session, semestre et jour.",
+    "keywords": ["surveillance", "examens", "session", "semestre", "points"],
+    "faqHints": [
+      "Comment declarer une surveillance d'examen ?",
+      "Pourquoi le score change selon le jour de session ?",
+      "Comment voir mes surveillances deja soumises ?"
+    ],
+    "allowedRoles": ["ENSEIGNANT", "CHEF_DEPARTEMENT"],
+    "mainActions": [
+      "Ajouter une surveillance",
+      "Consulter le resume et l'historique",
+      "Modifier, supprimer ou soumettre selon le statut",
+      "Filtrer les surveillances par semestre"
+    ],
+    "notes": "Le module calcule automatiquement les points a partir du jour de session."
+  },
+  {
+    "route": "/responsibilities",
+    "aliases": [
+      "/responsibilities/new"
+    ],
+    "title": "Responsabilites academiques",
+    "description": "Gestion des responsabilites institutionnelles avec suivi des etats et validation workflow.",
+    "keywords": ["responsabilites", "roles academiques", "leadership", "workflow", "historique"],
+    "faqHints": [
+      "Comment ajouter une responsabilite academique ?",
+      "Pourquoi certains types de responsabilite ne sont pas disponibles pour mon role ?",
+      "Comment soumettre une responsabilite pour validation ?"
+    ],
+    "allowedRoles": ["ENSEIGNANT", "CHEF_DEPARTEMENT"],
+    "mainActions": [
+      "Creer une responsabilite",
+      "Filtrer par type et etat actif/termine",
+      "Modifier ou supprimer selon permissions",
+      "Soumettre au workflow"
+    ],
+    "notes": "Le type autorise depend du role utilisateur."
+  },
+  {
+    "route": "/availability/leave",
+    "aliases": [
+      "/availability/mission"
+    ],
+    "title": "Demandes de disponibilite",
+    "description": "Declaration des demandes de conge et de mission avec historique et suivi de validation.",
+    "keywords": ["disponibilite", "conge", "mission", "certificat medical", "workflow"],
+    "faqHints": [
+      "Comment faire une demande de conge ?",
+      "Comment declarer une mission ou une conference ?",
+      "Le certificat medical est-il obligatoire pour un conge maladie ?",
+      "Ou suivre le statut de mes demandes ?"
+    ],
+    "allowedRoles": ["ENSEIGNANT"],
+    "mainActions": [
+      "Soumettre une demande de conge",
+      "Soumettre une demande de mission",
+      "Ajouter un certificat medical image pour conge maladie",
+      "Consulter l'historique des demandes"
+    ],
+    "notes": "Les demandes sont envoyees dans le workflow apres creation."
+  },
+  {
+    "route": "/workflow",
+    "aliases": [],
+    "title": "Validation des activites",
+    "description": "Espace de traitement des dossiers en attente de validation departementale ou finale.",
+    "keywords": ["workflow", "validation", "dossiers", "historique", "decision"],
+    "faqHints": [
+      "Comment valider ou rejeter un dossier ?",
+      "Comment demander une correction sur une activite ?",
+      "Ou consulter l'historique des decisions d'une activite ?"
+    ],
+    "allowedRoles": ["CHEF_DEPARTEMENT", "ADMINISTRATION"],
+    "mainActions": [
+      "Consulter les activites a traiter",
+      "Ouvrir les details et l'historique de validation",
+      "Prendre une decision (valider, a corriger, rejeter)",
+      "Rechercher et filtrer les dossiers"
+    ],
+    "notes": "Les decisions font progresser le statut des activites dans le cycle de validation."
+  },
+  {
+    "route": "/reports",
+    "aliases": [],
+    "title": "Rapports",
+    "description": "Generation, historique et telechargement des rapports selon le perimetre autorise par role.",
+    "keywords": ["rapports", "PDF", "Excel", "generation", "telechargement"],
+    "faqHints": [
+      "Comment generer mon rapport individuel en PDF ?",
+      "Comment telecharger un rapport deja genere ?",
+      "Pourquoi je ne vois pas les memes types de rapports qu'un autre role ?"
+    ],
+    "allowedRoles": ["ENSEIGNANT", "CHEF_DEPARTEMENT", "ADMINISTRATION"],
+    "mainActions": [
+      "Generer des rapports PDF/Excel autorises par role",
+      "Consulter l'historique des rapports",
+      "Filtrer par type, format et periode",
+      "Telecharger un rapport"
+    ],
+    "notes": "Le type de rapport disponible depend strictement du role."
+  },
+  {
+    "route": "/users",
+    "aliases": ["/users/supervision"],
+    "title": "Gestion des utilisateurs et roles",
+    "description": "Espace d'administration des comptes pour creation, modification, activation et suppression.",
+    "keywords": ["utilisateurs", "roles", "departements", "administration", "comptes"],
+    "faqHints": [
+      "Comment creer un nouveau compte utilisateur ?",
+      "Comment changer le role ou le departement d'un utilisateur ?",
+      "Pourquoi la suppression d'un chef de departement est bloquee ?"
+    ],
+    "allowedRoles": ["SUPER_ADMIN"],
+    "mainActions": [
+      "Lister les utilisateurs",
+      "Creer un compte",
+      "Modifier role, departement et statut d'activation",
+      "Supprimer un compte autorise"
+    ],
+    "notes": "Des regles de gouvernance departementale s'appliquent lors des modifications de roles."
+  },
+  {
+    "route": "/administration",
+    "aliases": [],
+    "title": "Administration academique",
+    "description": "Module d'administration pour le controle des anomalies, la consolidation des dossiers et le suivi operationnel.",
+    "keywords": ["administration", "anomalies", "bonus", "controle", "consolidation", "validation finale"],
+    "faqHints": [
+      "Comment controler les anomalies des declarations ?",
+      "Ou voir les dossiers a risque avant validation finale ?",
+      "Comment suivre les bonus et points consolides ?"
+    ],
+    "allowedRoles": ["ADMINISTRATION"],
+    "mainActions": [
+      "Controler les anomalies detectees",
+      "Analyser les indicateurs de consolidation",
+      "Prioriser les dossiers sensibles",
+      "Suivre les operations administratives"
+    ],
+    "notes": "Ce module est reserve au role administration."
+  },
+  {
+    "route": "/absences",
+    "aliases": [],
+    "title": "Suivi des absences",
+    "description": "Suivi des absences et disponibilites avec indicateurs de pilotage par perimetre.",
+    "keywords": ["absences", "disponibilite", "conge", "mission", "suivi", "kpi absences"],
+    "faqHints": [
+      "Comment suivre les absences du departement ?",
+      "Ou voir les tendances de disponibilite ?",
+      "Quels dossiers d'absence sont en attente ?"
+    ],
+    "allowedRoles": ["CHEF_DEPARTEMENT", "ADMINISTRATION"],
+    "mainActions": [
+      "Consulter les absences par periode",
+      "Analyser les tendances de disponibilite",
+      "Identifier les dossiers en attente",
+      "Appuyer les decisions de validation"
+    ],
+    "notes": "Le perimetre visible depend du role connecte."
+  },
+  {
+    "route": "/profile",
+    "aliases": [],
+    "title": "Profil et securite",
+    "description": "Gestion du profil utilisateur et des options de securite, incluant 2FA et authentification avancee.",
+    "keywords": ["profil", "securite", "2FA", "codes de secours", "passkey", "face recognition"],
+    "faqHints": [
+      "Comment mettre a jour mon profil ?",
+      "Comment activer la double authentification ?",
+      "Comment regenerer mes codes de secours ?",
+      "Comment activer ou supprimer la reconnaissance faciale ?"
+    ],
+    "allowedRoles": ["ENSEIGNANT", "CHEF_DEPARTEMENT", "ADMINISTRATION", "SUPER_ADMIN"],
+    "mainActions": [
+      "Modifier les informations personnelles",
+      "Configurer et gerer la double authentification",
+      "Regenerer les codes de secours",
+      "Activer ou retirer la reconnaissance faciale"
+    ],
+    "notes": "Les roles sensibles peuvent etre soumis a une obligation 2FA pour l'acces aux modules metier."
+  }
+]

@@ -1,0 +1,93 @@
+@startuml
+left to right direction
+skinparam packageStyle rectangle
+
+actor Enseignant
+actor "Chef de departement" as Chef
+actor Administration
+actor "Super Administrateur" as SuperAdmin
+
+rectangle "Plateforme de suivi des activites academiques" {
+
+  usecase "S'authentifier" as UC_Login
+  usecase "Gerer profil academique" as UC_Profile
+  usecase "Declarer enseignement" as UC_Teaching
+  usecase "Declarer encadrement" as UC_Supervision
+  usecase "Declarer activite recherche" as UC_Research
+  usecase "Declarer responsabilite academique" as UC_Responsibility
+  usecase "Declarer surveillance examen" as UC_Exam
+  usecase "Declarer organisation evenement" as UC_Event
+  usecase "Modifier activite" as UC_Edit
+  usecase "Supprimer activite brouillon" as UC_Delete
+  usecase "Soumettre activite" as UC_Submit
+  usecase "Consulter statut validation" as UC_Status
+  usecase "Generer rapport individuel" as UC_IndividualReport
+  usecase "Exporter Excel" as UC_ExportExcel
+  usecase "Consulter tableau de bord personnel" as UC_PersonalDashboard
+
+  usecase "Consulter activites enseignants" as UC_ViewActivities
+  usecase "Valider activite" as UC_Validate
+  usecase "Rejeter activite" as UC_Reject
+  usecase "Demander correction" as UC_RequestCorrection
+  usecase "Consulter historique validations" as UC_History
+  usecase "Generer rapport departemental" as UC_DepartmentReport
+  usecase "Consulter tableau de bord departemental" as UC_DepDashboard
+
+  usecase "Gerer utilisateurs" as UC_ManageUsers
+  usecase "Validation finale" as UC_FinalValidation
+  usecase "Generer rapport institutionnel" as UC_InstitutionReport
+  usecase "Calculer indicateurs de performance" as UC_KPI
+  usecase "Calculer prime de performance" as UC_Bonus
+  usecase "Consulter tableau de bord global" as UC_GlobalDashboard
+
+  usecase "Gerer roles" as UC_Roles
+  usecase "Gerer parametres systeme" as UC_Settings
+  usecase "Gerer referentiels" as UC_References
+}
+
+Enseignant -- UC_Login
+Enseignant -- UC_Profile
+Enseignant -- UC_Teaching
+Enseignant -- UC_Supervision
+Enseignant -- UC_Research
+Enseignant -- UC_Responsibility
+Enseignant -- UC_Exam
+Enseignant -- UC_Event
+Enseignant -- UC_Edit
+Enseignant -- UC_Delete
+Enseignant -- UC_Submit
+Enseignant -- UC_Status
+Enseignant -- UC_IndividualReport
+Enseignant -- UC_ExportExcel
+Enseignant -- UC_PersonalDashboard
+
+Chef -- UC_Login
+Chef -- UC_ViewActivities
+Chef -- UC_Validate
+Chef -- UC_Reject
+Chef -- UC_RequestCorrection
+Chef -- UC_History
+Chef -- UC_DepartmentReport
+Chef -- UC_DepDashboard
+
+Administration -- UC_Login
+Administration -- UC_ManageUsers
+Administration -- UC_FinalValidation
+Administration -- UC_History
+Administration -- UC_InstitutionReport
+Administration -- UC_ExportExcel
+Administration -- UC_KPI
+Administration -- UC_Bonus
+Administration -- UC_GlobalDashboard
+
+SuperAdmin -- UC_Login
+SuperAdmin -- UC_Roles
+SuperAdmin -- UC_Settings
+SuperAdmin -- UC_References
+
+UC_IndividualReport .> UC_KPI : <<include>>
+UC_DepartmentReport .> UC_KPI : <<include>>
+UC_InstitutionReport .> UC_KPI : <<include>>
+UC_Bonus .> UC_KPI : <<include>>
+
+@enduml

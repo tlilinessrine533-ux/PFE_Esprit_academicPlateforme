@@ -1,0 +1,13 @@
+package com.esprit.academicplatform.common.enums;
+
+public enum PublicationType {
+    PROJET_DEVELOPPEMENT_UNITE_RECHERCHE,
+    PROJET_RECHERCHE_ARTICLE_CONFERENCE,
+    PUBLICATION_ARTICLE,
+    PRESENTATION_TRAVAIL,
+    ARTICLE,
+    CONFERENCE,
+    COMMUNICATION,
+    PROJET_RECHERCHE,
+    CHAPITRE_OUVRAGE
+}

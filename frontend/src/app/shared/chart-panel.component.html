@@ -1,0 +1,16 @@
+<article class="panel chart-panel">
+  <div class="chart-panel-header">
+    <h3>{{ title }}</h3>
+    @if (subtitle) {
+      <p>{{ subtitle }}</p>
+    }
+  </div>
+
+  @if (hasRenderableData) {
+    <div class="chart-canvas-wrap" [style.height.px]="height">
+      <canvas #chartCanvas></canvas>
+    </div>
+  } @else {
+    <p class="chart-empty">{{ emptyLabel }}</p>
+  }
+</article>

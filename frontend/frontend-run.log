@@ -1,0 +1,48 @@
+
+> frontend@0.0.0 start
+> ng serve --proxy-config proxy.conf.json --host localhost
+
+[33m>[39m Building...
+[32m√[39m Building...
+[1mInitial chunk files[22m[2m | [22m[1mNames[22m                           [2m | [22m [1mRaw size[22m
+[32mmain.js[39m            [2m | [22m[2mmain[22m                            [2m | [22m [36m22.82 kB[39m[2m | [22m
+[32mstyles.css[39m         [2m | [22m[2mstyles[22m                          [2m | [22m [36m14.13 kB[39m[2m | [22m
+[32mchunk-6JU2PHJM.js[39m  [2m | [22m[2m-[22m                               [2m | [22m  [36m3.23 kB[39m[2m | [22m
+[32mchunk-VUJOFXKG.js[39m  [2m | [22m[2m-[22m                               [2m | [22m[36m938 bytes[39m[2m | [22m
+
+[1m [22m                  [2m | [22m[1mInitial total[22m                   [2m | [22m [1m41.12 kB[22m
+
+[1mLazy chunk files[22m   [2m | [22m[1mNames[22m                           [2m | [22m [1mRaw size[22m
+[32mchunk-DYTNY74D.js[39m  [2m | [22m[2mworkflow-page-component[22m         [2m | [22m [36m81.68 kB[39m[2m | [22m
+[32mchunk-E7N5HUQP.js[39m  [2m | [22m[2mteaching-page-component[22m         [2m | [22m [36m61.64 kB[39m[2m | [22m
+[32mchunk-BX7HRITS.js[39m  [2m | [22m[2msupervision-page-component[22m      [2m | [22m [36m59.73 kB[39m[2m | [22m
+[32mchunk-CPRVEODP.js[39m  [2m | [22m[2mreports-page-component[22m          [2m | [22m [36m59.71 kB[39m[2m | [22m
+[32mchunk-ROJAAGBN.js[39m  [2m | [22m[2mresearch-page-component[22m         [2m | [22m [36m58.63 kB[39m[2m | [22m
+[32mchunk-NWJWY252.js[39m  [2m | [22m[2mapp-shell-component[22m             [2m | [22m [36m55.95 kB[39m[2m | [22m
+[32mchunk-FXH2GLNQ.js[39m  [2m | [22m[2mresponsibilities-page-component[22m [2m | [22m [36m54.54 kB[39m[2m | [22m
+[32mchunk-VBLOJQCO.js[39m  [2m | [22m[2mdashboard-page-component[22m        [2m | [22m [36m54.18 kB[39m[2m | [22m
+[32mchunk-VGXODIR6.js[39m  [2m | [22m[2mexam-surveillance-page-component[22m[2m | [22m [36m51.74 kB[39m[2m | [22m
+[32mchunk-Z4OKGX26.js[39m  [2m | [22m[2musers-page-component[22m            [2m | [22m [36m49.69 kB[39m[2m | [22m
+[32mchunk-VJFPKGP3.js[39m  [2m | [22m[2mevents-page-component[22m           [2m | [22m [36m48.14 kB[39m[2m | [22m
+[32mchunk-CN7QDN2R.js[39m  [2m | [22m[2msignup-page-component[22m           [2m | [22m [36m26.75 kB[39m[2m | [22m
+[32mchunk-77VH4A6H.js[39m  [2m | [22m[2mprofile-page-component[22m          [2m | [22m [36m25.75 kB[39m[2m | [22m
+[32mchunk-CKG3FZJZ.js[39m  [2m | [22m[2mlogin-page-component[22m            [2m | [22m [36m20.68 kB[39m[2m | [22m
+[32mchunk-S7DKFGXB.js[39m  [2m | [22m[2m-[22m                               [2m | [22m  [36m2.07 kB[39m[2m | [22m
+[2m...and 11 more lazy chunks files. Use "--verbose" to show all the files.[22m
+
+Application bundle generation complete. [14.229 seconds] - 2026-04-02T00:38:05.123Z
+
+Watch mode enabled. Watching for file changes...
+NOTE: Raw file sizes do not reflect development server per-request transformations.
+  [32m➜[39m  [1mLocal[22m:   [36mhttp://localhost:[1m4200[22m/[39m
+[33m>[39m Changes detected. Rebuilding...
+[32m√[39m Changes detected. Rebuilding...
+[1mInitial chunk files[22m[2m | [22m[1mNames[22m                   [2m | [22m[1mRaw size[22m
+[32mmain.js[39m            [2m | [22m[2mmain[22m                    [2m | [22m[36m22.82 kB[39m[2m | [22m
+
+[1mLazy chunk files[22m   [2m | [22m[1mNames[22m                   [2m | [22m[1mRaw size[22m
+[32mchunk-7O44QGM7.js[39m  [2m | [22m[2mdashboard-page-component[22m[2m | [22m[36m54.15 kB[39m[2m | [22m
+
+Application bundle generation complete. [7.720 seconds] - 2026-04-02T00:44:43.107Z
+
+Page reload sent to client(s).

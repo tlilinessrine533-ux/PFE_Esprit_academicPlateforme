@@ -1,0 +1,37 @@
+
+> frontend@0.0.0 start
+> ng serve --proxy-config proxy.conf.json
+
+[33m>[39m Building...
+[32m√[39m Building...
+[1mInitial chunk files[22m[2m | [22m[1mNames[22m                           [2m | [22m[1mRaw size[22m
+[32mmain.js[39m            [2m | [22m[2mmain[22m                            [2m | [22m [36m5.51 kB[39m[2m | [22m
+[32mstyles.css[39m         [2m | [22m[2mstyles[22m                          [2m | [22m [36m4.42 kB[39m[2m | [22m
+[32mchunk-4L6LS74Y.js[39m  [2m | [22m[2m-[22m                               [2m | [22m [36m4.04 kB[39m[2m | [22m
+
+[1m [22m                  [2m | [22m[1mInitial total[22m                   [2m | [22m[1m13.97 kB[22m
+
+[1mLazy chunk files[22m   [2m | [22m[1mNames[22m                           [2m | [22m[1mRaw size[22m
+[32mchunk-NSH73M4K.js[39m  [2m | [22m[2mworkflow-page-component[22m         [2m | [22m[36m80.27 kB[39m[2m | [22m
+[32mchunk-AWVV2IT6.js[39m  [2m | [22m[2mdashboard-page-component[22m        [2m | [22m[36m75.50 kB[39m[2m | [22m
+[32mchunk-DWIPQQKA.js[39m  [2m | [22m[2mteaching-page-component[22m         [2m | [22m[36m63.75 kB[39m[2m | [22m
+[32mchunk-QIO63QZW.js[39m  [2m | [22m[2mreports-page-component[22m          [2m | [22m[36m62.65 kB[39m[2m | [22m
+[32mchunk-SGHOABDM.js[39m  [2m | [22m[2msupervision-page-component[22m      [2m | [22m[36m61.02 kB[39m[2m | [22m
+[32mchunk-TIPA7Z3G.js[39m  [2m | [22m[2mresearch-page-component[22m         [2m | [22m[36m59.76 kB[39m[2m | [22m
+[32mchunk-CBQXHZAK.js[39m  [2m | [22m[2mresponsibilities-page-component[22m [2m | [22m[36m54.39 kB[39m[2m | [22m
+[32mchunk-S7G4IXOP.js[39m  [2m | [22m[2mexam-surveillance-page-component[22m[2m | [22m[36m51.80 kB[39m[2m | [22m
+[32mchunk-6DBM7PTJ.js[39m  [2m | [22m[2mevents-page-component[22m           [2m | [22m[36m47.78 kB[39m[2m | [22m
+[32mchunk-HYYLEP6P.js[39m  [2m | [22m[2mapp-shell-component[22m             [2m | [22m[36m36.82 kB[39m[2m | [22m
+[32mchunk-CZ33IIZR.js[39m  [2m | [22m[2mprofile-page-component[22m          [2m | [22m[36m29.11 kB[39m[2m | [22m
+[32mchunk-YRH2XEDI.js[39m  [2m | [22m[2musers-page-component[22m            [2m | [22m[36m26.43 kB[39m[2m | [22m
+[32mchunk-UXO222VW.js[39m  [2m | [22m[2mlogin-page-component[22m            [2m | [22m[36m15.82 kB[39m[2m | [22m
+[32mchunk-LMQVQZX3.js[39m  [2m | [22m[2m-[22m                               [2m | [22m [36m2.07 kB[39m[2m | [22m
+[32mchunk-I7UZARNF.js[39m  [2m | [22m[2m-[22m                               [2m | [22m [36m1.95 kB[39m[2m | [22m
+[2m...and 3 more lazy chunks files. Use "--verbose" to show all the files.[22m
+
+Application bundle generation complete. [5.438 seconds] - 2026-03-31T20:07:26.739Z
+
+Watch mode enabled. Watching for file changes...
+NOTE: Raw file sizes do not reflect development server per-request transformations.
+[2m21:07:27[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m Re-optimizing dependencies because vite config has changed
+  [32m➜[39m  [1mLocal[22m:   [36mhttp://localhost:[1m4200[22m/[39m

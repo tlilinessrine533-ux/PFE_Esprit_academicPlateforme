@@ -1,0 +1,784 @@
+@if (isSuperAdmin()) {
+  <div class="page-shell dashboard-shell dashboard-shell--super-admin">
+    @if (errorMessage()) {
+      <div class="error-banner">{{ errorMessage() }}</div>
+    }
+
+    <section class="panel global-hero-panel super-admin-hero">
+      <div class="global-hero-copy">
+        <p class="eyebrow">Pilotage systeme</p>
+        <h1 class="section-title">Tableau de bord de performance global</h1>
+        <p class="global-hero-context">
+          Supervision des comptes, de la stabilite plateforme et des actions critiques.
+        </p>
+      </div>
+
+      <div class="global-hero-controls">
+        <label class="field compact-field">
+          <span>Annee universitaire</span>
+          <input [value]="periodLabel()" (input)="periodLabel.set($any($event.target).value)" />
+        </label>
+        <button class="primary-button global-refresh-button" type="button" (click)="loadDashboard()" [disabled]="loading()">
+          {{ loading() ? 'Chargement...' : 'Actualiser' }}
+        </button>
+      </div>
+    </section>
+
+    <section class="global-kpi-grid super-admin-kpi-grid">
+      <article class="panel global-kpi-card global-kpi-card--brand">
+        <div class="global-kpi-head"><span>Total utilisateurs</span><small>US</small></div>
+        <strong class="global-kpi-value">{{ superAdminTotalUsers() }}</strong>
+        <p class="global-kpi-note">Comptes enregistres sur la plateforme.</p>
+      </article>
+      <article class="panel global-kpi-card global-kpi-card--accent">
+        <div class="global-kpi-head"><span>Utilisateurs actifs</span><small>AC</small></div>
+        <strong class="global-kpi-value">{{ superAdminActiveUsers() }}</strong>
+        <p class="global-kpi-note">Comptes actifs.</p>
+      </article>
+      <article class="panel global-kpi-card global-kpi-card--soft">
+        <div class="global-kpi-head"><span>Departements</span><small>DP</small></div>
+        <strong class="global-kpi-value">{{ superAdminDepartments() }}</strong>
+        <p class="global-kpi-note">Structure organisationnelle.</p>
+      </article>
+      <article class="panel global-kpi-card global-kpi-card--ink">
+        <div class="global-kpi-head"><span>Nombre roles</span><small>RL</small></div>
+        <strong class="global-kpi-value">{{ superAdminRoles() }}</strong>
+        <p class="global-kpi-note">Roles utilises en production.</p>
+      </article>
+      <article class="panel global-kpi-card global-kpi-card--accent">
+        <div class="global-kpi-head"><span>Disponibilite plateforme</span><small>UP</small></div>
+        <strong class="global-kpi-value">{{ formatRate(superAdminPlatformAvailability()) }}</strong>
+        <p class="global-kpi-note">Disponibilite technique consolidee.</p>
+      </article>
+      <article class="panel global-kpi-card global-kpi-card--brand">
+        <div class="global-kpi-head"><span>Taux erreurs systeme</span><small>ER</small></div>
+        <strong class="global-kpi-value">{{ formatRate(superAdminErrorRate()) }}</strong>
+        <p class="global-kpi-note">Alertes securite et incidents detectes.</p>
+      </article>
+    </section>
+
+    <section class="super-admin-chart-grid">
+      <app-chart-panel
+        title="Connexions (estimation mensuelle)"
+        subtitle="Tendance des activites comptes sur les 6 derniers mois."
+        type="line"
+        [data]="superAdminConnectionsTrendChartData()"
+        [height]="290"
+        [legend]="false"
+      ></app-chart-panel>
+      <app-chart-panel
+        title="Utilisateurs par role"
+        subtitle="Distribution des comptes par role."
+        type="bar"
+        [data]="superAdminUsersByRoleChartData()"
+        [height]="290"
+        [legend]="false"
+      ></app-chart-panel>
+      <app-chart-panel
+        title="Statut systeme"
+        subtitle="Part OK vs erreurs detectees."
+        type="doughnut"
+        [data]="superAdminSystemStatusChartData()"
+        [height]="290"
+      ></app-chart-panel>
+    </section>
+
+    <section class="panel">
+      <div class="history-header">
+        <div class="history-header-copy">
+          <p class="eyebrow">Dernieres actions systeme</p>
+          <h2 class="section-title">Journaux recents</h2>
+        </div>
+        @if (hasSuperAdminSystemActionsToggle()) {
+          <button
+            class="ghost-button icon-only-button recent-list-toggle-button"
+            type="button"
+            [class.is-expanded]="showAllSuperAdminSystemActions()"
+            (click)="toggleSuperAdminSystemActions()"
+            [title]="superAdminSystemActionsToggleLabel()"
+            [attr.aria-label]="superAdminSystemActionsToggleLabel()"
+          ></button>
+        }
+      </div>
+
+      <div class="table-wrapper">
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>Date</th>
+              <th>Utilisateur</th>
+              <th>Action</th>
+              <th>Statut</th>
+              <th>Detail</th>
+            </tr>
+          </thead>
+          <tbody>
+            @if (superAdminSystemActions().length === 0) {
+              <tr>
+                <td colspan="5">Aucun journal systeme disponible pour le moment.</td>
+              </tr>
+            } @else {
+              @for (entry of visibleSuperAdminSystemActions(); track entry.id) {
+                <tr>
+                  <td>{{ entry.occurredAt | date: 'dd/MM/yyyy HH:mm' }}</td>
+                  <td>{{ entry.actor }}</td>
+                  <td><strong>{{ entry.action }}</strong></td>
+                  <td><span [class]="superAdminActionStatusClass(entry.status)">{{ entry.status }}</span></td>
+                  <td>{{ entry.detail }}</td>
+                </tr>
+              }
+            }
+          </tbody>
+        </table>
+      </div>
+    </section>
+  </div>
+} @else if (isAdminRh()) {
+<div class="page-shell dashboard-shell dashboard-shell--admin-rh">
+  @if (errorMessage()) {
+    <div class="error-banner">{{ errorMessage() }}</div>
+  }
+
+  <section class="panel global-hero-panel admin-rh-hero">
+    <div class="global-hero-copy">
+      <p class="eyebrow">Pilotage Admin et RH</p>
+      <h1 class="section-title">Tableau de bord Admin et RH</h1>
+      <p class="global-hero-context">
+        Lecture rapide des primes, grades, conformite des dossiers et assiduite institutionnelle.
+      </p>
+    </div>
+
+    <div class="global-hero-controls">
+      <label class="field compact-field">
+        <span>Annee universitaire</span>
+        <input [value]="periodLabel()" (input)="periodLabel.set($any($event.target).value)" />
+      </label>
+      <button class="primary-button global-refresh-button" type="button" (click)="loadDashboard()" [disabled]="loading()">
+        {{ loading() ? 'Chargement...' : 'Actualiser' }}
+      </button>
+    </div>
+  </section>
+
+  <section class="global-kpi-grid admin-rh-primary-grid">
+    @for (card of adminPrimaryKpiCards(); track card.label) {
+      <article class="panel global-kpi-card global-kpi-card--{{ card.tone }}">
+        <div class="global-kpi-head">
+          <span>{{ card.label }}</span>
+          <small>{{ card.icon }}</small>
+        </div>
+        <strong class="global-kpi-value">{{ card.value }}</strong>
+        <p class="global-kpi-note">{{ card.note }}</p>
+      </article>
+    }
+  </section>
+
+  <section class="panel admin-rh-secondary-panel">
+    <div class="global-panel-head">
+      <h2>KPI secondaires</h2>
+      <span>Vue compacte de suivi RH</span>
+    </div>
+    <div class="admin-rh-secondary-grid">
+      @for (metric of adminSecondaryMetrics(); track metric.label) {
+        <article class="admin-rh-secondary-card" [attr.data-tone]="metric.tone">
+          <span>{{ metric.label }}</span>
+          <strong>{{ metric.value }}</strong>
+        </article>
+      }
+    </div>
+  </section>
+
+  <section class="admin-rh-chart-grid">
+    <app-chart-panel
+      title="Primes par departement"
+      subtitle="Montant total des primes calculees."
+      type="bar"
+      [data]="adminPrimeByDepartmentChartData()"
+      [options]="adminPrimeByDepartmentChartOptions()"
+      [height]="adminPrimeByDepartmentChartHeight()"
+      [legend]="false"
+    ></app-chart-panel>
+    <app-chart-panel
+      title="Etat des dossiers"
+      subtitle="Valides, en attente et non conformes."
+      type="doughnut"
+      [data]="adminDossiersStatusChartData()"
+      [height]="280"
+    ></app-chart-panel>
+    <app-chart-panel
+      title="Absences par mois"
+      subtitle="Evolution des jours d'absence sur la periode."
+      type="line"
+      [data]="adminAbsencesTrendChartData()"
+      [height]="280"
+      [legend]="false"
+    ></app-chart-panel>
+  </section>
+
+  <section class="panel admin-rh-critical-panel">
+    <div class="global-panel-head global-panel-head--table">
+      <div>
+        <p class="eyebrow">Priorites RH</p>
+        <h2>Dossiers critiques</h2>
+      </div>
+      <div class="global-panel-head-actions">
+        <span class="recent-total">{{ adminCriticalCases().length }} dossier(s)</span>
+        @if (hasAdminCriticalCasesToggle()) {
+          <button
+            class="ghost-button icon-only-button recent-list-toggle-button"
+            type="button"
+            [class.is-expanded]="showAllAdminCriticalCases()"
+            (click)="toggleAdminCriticalCases()"
+            [title]="adminCriticalCasesToggleLabel()"
+            [attr.aria-label]="adminCriticalCasesToggleLabel()"
+          ></button>
+        }
+      </div>
+    </div>
+
+    @if (loading() && adminCriticalCases().length === 0) {
+      <p class="empty-state">Chargement des dossiers critiques...</p>
+    } @else if (adminCriticalCases().length === 0) {
+      <p class="empty-state">Aucun dossier en attente ou non conforme sur la periode selectionnee.</p>
+    } @else {
+      <div class="table-wrapper">
+        <table class="data-table admin-rh-critical-table">
+          <thead>
+            <tr>
+              <th>Enseignant</th>
+              <th>Points</th>
+              <th>Prime estimee</th>
+              <th>Statut dossier</th>
+              <th class="col-actions">Action</th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (item of visibleAdminCriticalCases(); track item.teacherId) {
+              <tr>
+                <td>
+                  <strong>{{ item.teacherName }}</strong>
+                  <div class="table-meta">{{ item.departmentName ?? 'Non affecte' }}</div>
+                </td>
+                <td>{{ formatPoints(item.calculatedPromotionPoints) }} pts</td>
+                <td>{{ formatPoints(item.calculatedBonus) }} DT</td>
+                <td>
+                  <span [class]="adminDecisionStatusClass(item.decisionStatus)">
+                    {{ adminDecisionStatusLabel(item.decisionStatus) }}
+                  </span>
+                </td>
+                <td class="action-cell col-actions">
+                  <div class="recent-row-actions">
+                    <button
+                      class="link-button detail-link icon-only-button icon-view activity-action-button"
+                      type="button"
+                      title="Traiter ce dossier"
+                      aria-label="Traiter ce dossier"
+                      (click)="openAdminCriticalCase(item)"
+                    ></button>
+                  </div>
+                </td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+    }
+  </section>
+
+</div>
+} @else {
+<div class="page-shell dashboard-shell dashboard-global-v2">
+  @if (errorMessage()) {
+    <div class="error-banner">{{ errorMessage() }}</div>
+  }
+
+  <section class="panel global-hero-panel" [class.has-year-explorer-open]="showHistoryExplorer()">
+    <div class="global-hero-copy">
+      <p class="eyebrow">Synthese globale</p>
+      <h1 class="section-title">Tableau de bord</h1>
+      <p class="global-hero-role">{{ roleTitle() }}</p>
+      <p class="global-hero-context">{{ topbarContextLabel() }}</p>
+      <div class="global-hero-meta">
+        @if (user()?.departmentName) {
+          <span class="global-chip">{{ user()?.departmentName }}</span>
+        }
+        @if (canOpenHistoryExplorer()) {
+          <div class="year-explorer-wrap">
+            <button
+              class="global-chip global-chip-button year-chip-button"
+              type="button"
+              (click)="toggleHistoryExplorer()"
+              [attr.aria-expanded]="showHistoryExplorer()"
+              aria-haspopup="dialog"
+            >
+              <span class="year-chip-glow" aria-hidden="true"></span>
+              <span class="year-chip-label">Annee {{ periodLabel() }}</span>
+              <span class="year-chip-caret" aria-hidden="true"></span>
+            </button>
+
+            @if (showHistoryExplorer()) {
+              <div class="year-explorer-backdrop" (click)="closeHistoryExplorer()" aria-hidden="true"></div>
+              <section class="year-explorer-popover" role="dialog" aria-label="Historique des dashboards" (click)="$event.stopPropagation()">
+                <header class="year-explorer-header">
+                  <div>
+                    <p class="eyebrow">Historique enseignant</p>
+                    <h2>Dashboards des annees precedentes</h2>
+                    <p>Comparez votre performance actuelle avec tout votre historique academique.</p>
+                  </div>
+                  <button class="ghost-button year-explorer-close" type="button" (click)="closeHistoryExplorer()">
+                    Fermer
+                  </button>
+                </header>
+
+                <div class="year-explorer-body">
+                  <aside class="year-explorer-years">
+                    @for (year of historyYears(); track year) {
+                      <button
+                        class="year-explorer-year-button"
+                        type="button"
+                        [class.is-selected]="selectedHistoryYear() === year"
+                        [class.is-current]="year === periodLabel()"
+                        (click)="selectHistoryYear(year)"
+                      >
+                        <span>{{ year }}</span>
+                        <small>{{ year === periodLabel() ? 'Annee active' : 'Archive' }}</small>
+                      </button>
+                    }
+                  </aside>
+
+                  <div class="year-explorer-content">
+                    @if (selectedYearSnapshot(); as snapshot) {
+                      <div class="year-explorer-head-row">
+                        <div>
+                          <h3>Periode selectionnee: {{ snapshot.periodLabel }}</h3>
+                          <p>Visualisez l'aperçu puis chargez le dashboard complet de cette annee.</p>
+                        </div>
+                        <button
+                          class="primary-button year-explorer-open-year"
+                          type="button"
+                          (click)="openSelectedHistoryYear()"
+                          [disabled]="selectedHistoryYear() === periodLabel()"
+                        >
+                          {{ selectedHistoryYear() === periodLabel() ? 'Annee deja affichee' : 'Afficher ce dashboard' }}
+                        </button>
+                      </div>
+
+                      <div class="year-explorer-kpi-grid">
+                        <article>
+                          <span>Score global</span>
+                          <strong>{{ formatPoints(snapshot.generalScore) }}</strong>
+                        </article>
+                        <article>
+                          <span>Points enseignement</span>
+                          <strong>{{ formatPoints(snapshot.teachingPerformancePoints) }}</strong>
+                        </article>
+                        <article>
+                          <span>Activites totales</span>
+                          <strong>{{ snapshot.totalActivities }}</strong>
+                        </article>
+                        <article>
+                          <span>Cours declares</span>
+                          <strong>{{ snapshot.totalTeachingActivities }}</strong>
+                        </article>
+                      </div>
+
+                      @if (selectedYearVsCurrentDelta(); as delta) {
+                        <div class="year-explorer-delta-grid">
+                          <article [attr.data-tone]="delta.scoreDelta >= 0 ? 'up' : 'down'">
+                            <span>Ecart score vs annee active</span>
+                            <strong>{{ delta.scoreDelta >= 0 ? '+' : '' }}{{ formatPoints(delta.scoreDelta) }}</strong>
+                          </article>
+                          <article [attr.data-tone]="delta.activitiesDelta >= 0 ? 'up' : 'down'">
+                            <span>Ecart activites vs annee active</span>
+                            <strong>{{ delta.activitiesDelta >= 0 ? '+' : '' }}{{ delta.activitiesDelta }}</strong>
+                          </article>
+                        </div>
+                      }
+                    } @else {
+                      <p class="empty-state">Aucune annee historique disponible pour le moment.</p>
+                    }
+
+                    <div class="year-explorer-charts">
+                      <app-chart-panel
+                        title="Evolution du score global"
+                        subtitle="Lecture chronologique de votre performance annuelle."
+                        type="line"
+                        [data]="yearExplorerPerformanceChartData()"
+                        [height]="210"
+                        [legend]="false"
+                      ></app-chart-panel>
+
+                      <app-chart-panel
+                        title="Distribution des activites (annee selectionnee)"
+                        subtitle="Volume des activites par categorie."
+                        type="bar"
+                        [data]="yearExplorerDistributionChartData()"
+                        [height]="210"
+                        [legend]="false"
+                      ></app-chart-panel>
+                    </div>
+                  </div>
+                </div>
+              </section>
+            }
+          </div>
+        } @else {
+          <span class="global-chip">Annee {{ periodLabel() }}</span>
+        }
+        @if (lastUpdatedLabel()) {
+          <span class="global-chip">Maj {{ lastUpdatedLabel() }}</span>
+        }
+      </div>
+    </div>
+
+    <div class="global-hero-controls">
+      <label class="field compact-field">
+        <span>Annee universitaire</span>
+        <input [value]="periodLabel()" (input)="periodLabel.set($any($event.target).value)" />
+      </label>
+      <button class="primary-button global-refresh-button" type="button" (click)="loadDashboard()" [disabled]="loading()">
+        {{ loading() ? 'Chargement...' : 'Actualiser' }}
+      </button>
+    </div>
+  </section>
+
+  <section class="global-kpi-grid">
+    @for (card of globalKpiCards(); track card.label) {
+      <article class="panel global-kpi-card global-kpi-card--{{ card.tone }}">
+        <div class="global-kpi-head">
+          <span>{{ card.label }}</span>
+          <small>{{ card.icon }}</small>
+        </div>
+        <strong class="global-kpi-value">{{ card.value }}</strong>
+        <p class="global-kpi-note">{{ card.note }}</p>
+      </article>
+    }
+  </section>
+
+  <section class="global-mid-grid">
+    <article class="panel global-workflow-panel">
+      <div class="global-panel-head">
+        <h2>Workflow des activites</h2>
+        <span>{{ globalDeclaredActivities() }} activites declarees</span>
+      </div>
+
+      <div class="workflow-tag-grid">
+        @for (item of globalWorkflowSummary(); track item.label) {
+          <article class="workflow-tag" [attr.data-tone]="item.tone">
+            <span class="workflow-tag-label">{{ item.label }}</span>
+            <strong>{{ item.value }}</strong>
+          </article>
+        }
+      </div>
+
+      <app-chart-panel
+        title="Repartition par statut"
+        subtitle="Validees / rejetees / en attente"
+        type="pie"
+        [data]="globalStatusChartData()"
+        [height]="210"
+      ></app-chart-panel>
+    </article>
+
+    <article class="panel global-absence-panel">
+      <div class="global-panel-head">
+        <h2>Absences & activite</h2>
+      </div>
+      <p class="absence-main-value">{{ globalAbsenceDisplay() }}</p>
+      <p class="absence-main-label">Jours d'absence sur le perimetre actif</p>
+
+      <div class="absence-mini-grid">
+        <article>
+          <span>Score actif</span>
+          <strong>{{ globalActiveScoreDisplay() }}</strong>
+        </article>
+        <article>
+          <span>Rapports generes</span>
+          <strong>{{ globalReportsDisplay() }}</strong>
+        </article>
+      </div>
+    </article>
+  </section>
+
+  <section class="global-bottom-grid">
+    <app-chart-panel
+      [title]="globalTrendTitle()"
+      [subtitle]="globalTrendSubtitle()"
+      type="line"
+      [data]="globalPointsTrendChartData()"
+      [height]="292"
+      [legend]="false"
+    ></app-chart-panel>
+
+    <app-chart-panel
+      title="Repartition des activites"
+      subtitle="Vue globale par type d'activite"
+      type="doughnut"
+      [data]="globalActivityTypeChartData()"
+      [height]="292"
+    ></app-chart-panel>
+  </section>
+
+  <section id="comparatif-enseignants" class="panel global-comparison-panel">
+    <div class="global-panel-head global-panel-head--comparison">
+      <div>
+        <h2>{{ globalComparisonTitle() }}</h2>
+        <p>Position dans le perimetre actif</p>
+      </div>
+      <span class="comparison-signal" [attr.data-tone]="globalComparisonSignal().tone">{{ globalComparisonSignal().label }}</span>
+    </div>
+
+    <div class="comparison-kpi-grid">
+      <article>
+        <span>Mes points</span>
+        <strong>{{ formatPoints(globalComparisonSummary().current) }}</strong>
+      </article>
+      <article>
+        <span>Min dep.</span>
+        <strong>{{ formatPoints(globalComparisonSummary().min) }}</strong>
+      </article>
+      <article>
+        <span>Moy dep.</span>
+        <strong>{{ formatPoints(globalComparisonSummary().average) }}</strong>
+      </article>
+      <article>
+        <span>Max dep.</span>
+        <strong>{{ formatPoints(globalComparisonSummary().max) }}</strong>
+      </article>
+    </div>
+
+    <div class="comparison-track">
+      <div class="comparison-track-fill"></div>
+      <span class="comparison-marker comparison-marker--minimum" [style.left.%]="globalComparisonSummary().minPositionPercent">
+        Min {{ formatPoints(globalComparisonSummary().min) }}
+      </span>
+      <span class="comparison-marker comparison-marker--current" [style.left.%]="globalComparisonSummary().currentPositionPercent">
+        Moi {{ formatPoints(globalComparisonSummary().current) }}
+      </span>
+      <span class="comparison-marker comparison-marker--average" [style.left.%]="globalComparisonSummary().averagePositionPercent">
+        Moy {{ formatPoints(globalComparisonSummary().average) }}
+      </span>
+      <span class="comparison-marker comparison-marker--maximum" [style.left.%]="globalComparisonSummary().maxPositionPercent">
+        Max {{ formatPoints(globalComparisonSummary().max) }}
+      </span>
+    </div>
+
+    <div class="comparison-footer">
+      <article class="comparison-delta-card" [attr.data-tone]="comparisonDeltaTone(globalComparisonSummary().deltaVsAverage)">
+        <span>Delta vs moyenne</span>
+        <strong>{{ formatSignedPoints(globalComparisonSummary().deltaVsAverage) }} pts</strong>
+      </article>
+      <article class="comparison-delta-card" [attr.data-tone]="comparisonDeltaTone(globalComparisonSummary().deltaVsMax)">
+        <span>Delta vs maximum</span>
+        <strong>{{ formatSignedPoints(globalComparisonSummary().deltaVsMax) }} pts</strong>
+      </article>
+    </div>
+  </section>
+
+  @if (showStrategicInsights()) {
+    <section class="panel strategic-panel">
+      <div class="global-panel-head strategic-panel-head">
+        <div>
+          <p class="eyebrow">Comparatif</p>
+          <h2>{{ strategicBenchmarkChartTitle() }}</h2>
+          <p>{{ strategicBenchmarkChartSubtitle() }}</p>
+        </div>
+        <div class="strategic-metric-switch">
+          @for (option of strategicMetricOptions; track option.key) {
+            <button
+              class="ghost-button strategic-metric-button"
+              type="button"
+              [class.is-active]="strategicMetric() === option.key"
+              (click)="selectStrategicMetric(option.key)"
+            >
+              {{ option.label }}
+            </button>
+          }
+        </div>
+      </div>
+
+      @if (strategicHighlightCards().length > 0) {
+        <div class="strategic-highlight-grid">
+          @for (card of strategicHighlightCards(); track card.label) {
+            <article class="strategic-highlight-card strategic-highlight-card--{{ card.tone }}">
+              <span>{{ card.label }}</span>
+              <strong>{{ card.value }}</strong>
+              <small>{{ card.note }}</small>
+            </article>
+          }
+        </div>
+      }
+
+      <div class="strategic-chart-grid">
+        <app-chart-panel
+          [title]="strategicMixChartTitle()"
+          subtitle="Repartition globale des activites du departement."
+          type="doughnut"
+          [data]="strategicActivityMixChartData()"
+          [height]="250"
+        ></app-chart-panel>
+        <app-chart-panel
+          [title]="strategicTrendChartTitle()"
+          subtitle="Evolution mensuelle des activites et validations."
+          type="line"
+          [data]="strategicTrendChartData()"
+          [height]="250"
+        ></app-chart-panel>
+      </div>
+
+      <app-chart-panel
+        [title]="strategicBenchmarkChartTitle()"
+        [subtitle]="strategicBenchmarkChartSubtitle()"
+        type="bar"
+        [data]="strategicBenchmarkChartData()"
+        [options]="strategicBenchmarkChartOptions()"
+        [height]="strategicBenchmarkChartHeight()"
+        [legend]="false"
+      ></app-chart-panel>
+
+      <div class="table-wrapper">
+        <table class="data-table strategic-benchmark-table">
+          <thead>
+            <tr>
+              <th>Rang</th>
+              <th>{{ strategicEntityHeader() }}</th>
+              <th>Activites</th>
+              <th>Validation</th>
+              <th>Points</th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (row of strategicBenchmarkVisibleRows(); track row.rank) {
+              <tr>
+                <td>#{{ row.rank }}</td>
+                <td>
+                  <strong>{{ row.label }}</strong>
+                  <div class="table-meta">{{ row.secondary }}</div>
+                </td>
+                <td>{{ row.activities }}</td>
+                <td>{{ formatRate(row.validationRate) }}</td>
+                <td>{{ formatPoints(row.points) }}</td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+    </section>
+  }
+
+  <section class="panel global-recent-panel">
+    <div class="global-panel-head global-panel-head--table">
+      <div>
+        <p class="eyebrow">Flux recent</p>
+        <h2>Activites recentes</h2>
+      </div>
+      <div class="global-panel-head-actions">
+        <span class="recent-total">{{ globalRecentActivities().length }} element(s)</span>
+        <button
+          class="ghost-button icon-only-button recent-list-toggle-button"
+          type="button"
+          [class.is-expanded]="showGlobalRecentList()"
+          (click)="toggleGlobalRecentList()"
+          [title]="globalRecentListToggleLabel()"
+          [attr.aria-label]="globalRecentListToggleLabel()"
+        ></button>
+      </div>
+    </div>
+
+    @if (loading() && globalRecentActivities().length === 0) {
+      <p class="empty-state">Chargement des activites recentes...</p>
+    } @else if (globalRecentActivities().length === 0) {
+      <p class="empty-state">Aucune activite recente disponible pour la periode choisie.</p>
+    } @else {
+      <div class="table-wrapper">
+        <table class="data-table global-recent-table">
+          <thead>
+            <tr>
+              <th>Date</th>
+              <th>Type</th>
+              <th>Description</th>
+              <th>Statut</th>
+              <th>Action</th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (activity of globalVisibleRecentActivities(); track activity.id) {
+              <tr [class.is-selected]="selectedGlobalRecentActivity()?.id === activity.id">
+                <td>{{ activity.dateLabel }}</td>
+                <td><span class="activity-type-chip">{{ activity.typeLabel }}</span></td>
+                <td>
+                  <div class="recent-description-cell">
+                    <strong>{{ activity.title }}</strong>
+                    <small>{{ activity.description }}</small>
+                  </div>
+                </td>
+                <td>
+                  <span class="activity-status-chip" [attr.data-status]="activity.statusLabel">{{ activity.statusLabel }}</span>
+                </td>
+                <td class="action-cell">
+                  <div class="recent-row-actions">
+                    @if (isDepartmentHead() && activity.statusLabel === 'En attente') {
+                      <button
+                        class="link-button approve-link icon-only-button icon-submit activity-action-button"
+                        type="button"
+                        (click)="routeToWorkflowDecision(activity, 'VALIDE')"
+                        title="Valider"
+                        aria-label="Valider"
+                      ></button>
+                      <button
+                        class="link-button danger-link icon-only-button icon-delete activity-action-button"
+                        type="button"
+                        (click)="routeToWorkflowDecision(activity, 'REJETE')"
+                        title="Rejeter"
+                        aria-label="Rejeter"
+                      ></button>
+                    }
+                    <button
+                      class="link-button detail-link icon-only-button icon-view activity-action-button"
+                      type="button"
+                      (click)="selectGlobalRecentActivity(activity)"
+                      [title]="selectedGlobalRecentActivity()?.id === activity.id ? 'Masquer les details' : 'Voir les details'"
+                      [attr.aria-label]="selectedGlobalRecentActivity()?.id === activity.id ? 'Masquer les details' : 'Voir les details'"
+                    ></button>
+                  </div>
+                </td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+
+      @if (selectedGlobalRecentActivity(); as activity) {
+        <section #recentActivityDetailSection class="recent-activity-detail">
+          <div class="recent-activity-detail-head">
+            <div>
+              <p class="eyebrow">Detail activite</p>
+              <h3>{{ activity.title }}</h3>
+            </div>
+            <span class="activity-status-chip" [attr.data-status]="activity.statusLabel">{{ activity.statusLabel }}</span>
+          </div>
+
+          <div class="recent-activity-detail-grid">
+            <article>
+              <span>Date</span>
+              <strong>{{ activity.dateLabel }}</strong>
+            </article>
+            <article>
+              <span>Type</span>
+              <strong>{{ activity.typeLabel }}</strong>
+            </article>
+            <article>
+              <span>Mesure</span>
+              <strong>{{ activity.metric }}</strong>
+            </article>
+            <article class="full-width">
+              <span>Description</span>
+              <strong>{{ activity.description }}</strong>
+            </article>
+          </div>
+        </section>
+      }
+    }
+  </section>
+
+</div>
+}

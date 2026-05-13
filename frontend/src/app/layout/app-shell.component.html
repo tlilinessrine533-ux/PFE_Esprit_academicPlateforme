@@ -1,0 +1,173 @@
+<div class="shell-layout" [attr.data-user-role]="user()?.role ?? ''">
+  <aside class="shell-sidebar">
+    <div class="sidebar-brand">
+      <div class="logo-card">
+        <img src="/logo-esprit-ariana.jpg" alt="ESPRIT" />
+      </div>
+      <div class="brand-copy">
+        <strong>Plateforme academique</strong>
+        <span>Suivi academique ESPRIT</span>
+      </div>
+    </div>
+
+    <nav class="shell-nav">
+      @for (item of navItems(); track item.path) {
+        @if (item.children?.length) {
+          <div class="nav-group" [class.active-group]="isNavGroupActive(item)">
+            @if (item.collapsible) {
+              <button
+                class="nav-link nav-group-link nav-group-toggle"
+                type="button"
+                [class.active-link]="isNavGroupActive(item)"
+                [attr.aria-expanded]="isNavGroupExpanded(item)"
+                (click)="toggleNavGroup(item)"
+              >
+                <span class="nav-icon">{{ item.icon }}</span>
+                <span class="nav-copy">
+                  <strong>{{ item.label }}</strong>
+                  @if (item.hint) {
+                    <small>{{ item.hint }}</small>
+                  }
+                </span>
+                <span class="nav-group-chevron" [class.expanded]="isNavGroupExpanded(item)" aria-hidden="true"></span>
+              </button>
+            } @else {
+              <div
+                class="nav-link nav-group-link nav-group-label"
+                [class.active-link]="isNavGroupActive(item)"
+              >
+                <span class="nav-icon">{{ item.icon }}</span>
+                <span class="nav-copy">
+                  <strong>{{ item.label }}</strong>
+                  @if (item.hint) {
+                    <small>{{ item.hint }}</small>
+                  }
+                </span>
+              </div>
+            }
+
+            <div class="nav-submenu" [class.nav-submenu-collapsed]="!isNavGroupExpanded(item)">
+              @for (child of item.children; track child.path) {
+                <a
+                  class="nav-sublink"
+                  [routerLink]="child.path"
+                  routerLinkActive="active-sublink"
+                  [routerLinkActiveOptions]="{ exact: true }"
+                >
+                  <span class="nav-sublink-dot"></span>
+                  <span class="nav-sublink-copy">
+                    <strong>{{ child.label }}</strong>
+                    <small>{{ child.hint }}</small>
+                  </span>
+                </a>
+              }
+            </div>
+          </div>
+        } @else {
+          <a
+            class="nav-link"
+            [routerLink]="item.path"
+            routerLinkActive="active-link"
+            [routerLinkActiveOptions]="{ exact: true }"
+          >
+            <span class="nav-icon">{{ item.icon }}</span>
+            <span class="nav-copy">
+              <strong>{{ item.label }}</strong>
+              @if (item.hint) {
+                <small>{{ item.hint }}</small>
+              }
+            </span>
+          </a>
+        }
+      }
+    </nav>
+
+    @if (showNotificationCenter()) {
+      <section class="sidebar-center">
+        <div class="center-header">
+          <div>
+            <p class="eyebrow">Centre</p>
+            <strong>Notifications</strong>
+          </div>
+          @if (unreadNotificationsCount() > 0) {
+            <span class="notification-badge">{{ unreadNotificationsCount() }}</span>
+          }
+        </div>
+
+        @if (notificationsLoading()) {
+          <p class="sidebar-empty">Chargement...</p>
+        } @else if (recentNotifications().length === 0) {
+          <p class="sidebar-empty">Aucune notification recente.</p>
+        } @else {
+          <div class="mini-notification-list">
+            @for (notification of recentNotifications(); track notification.id) {
+              <button class="mini-notification" type="button" (click)="markNotificationAsRead(notification.id)">
+                <strong>{{ notification.title }}</strong>
+                <small>{{ notification.createdAt | date: 'dd/MM HH:mm' }}</small>
+              </button>
+            }
+          </div>
+        }
+
+        @if (unreadNotificationsCount() > 0) {
+          <button class="sidebar-ghost-button" type="button" (click)="markAllNotificationsAsRead()">Tout lire</button>
+        }
+      </section>
+    }
+
+    <div class="shell-user-card">
+      <div class="user-avatar">{{ userInitials() }}</div>
+      <div class="user-copy">
+        <strong>{{ user()?.firstName }} {{ user()?.lastName }}</strong>
+        <span>{{ roleLabel(user()?.role) }}</span>
+        @if (user()?.departmentName) {
+          <small>{{ user()?.departmentName }}</small>
+        }
+      </div>
+      <button class="sidebar-ghost-button logout-button" type="button" (click)="logout()">Deconnexion</button>
+    </div>
+  </aside>
+
+  <section class="shell-main">
+    <header class="shell-header">
+      <div class="header-brand">
+        <img src="/logo-esprit-ariana.jpg" alt="ESPRIT" />
+        <div class="header-copy">
+          <strong>HONORIS UNITED UNIVERSITIES</strong>
+          <span>Plateforme academique ESPRIT</span>
+        </div>
+      </div>
+
+      <div class="header-presence">
+        <article class="presence-card">
+          <span class="presence-dot"></span>
+          <div class="presence-copy">
+            <small>{{ workspaceGreeting() }}</small>
+            <strong>{{ activeWorkspaceLabel() }}</strong>
+            <span>{{ activeWorkspaceHint() }}</span>
+          </div>
+        </article>
+
+        <article class="clock-card">
+          <small>{{ currentDateLabel() }}</small>
+          <strong>{{ currentTimeLabel() }}</strong>
+        </article>
+      </div>
+
+      <div class="header-meta">
+        <span class="header-role">{{ roleLabel(user()?.role) }}</span>
+        <strong>{{ user()?.firstName }} {{ user()?.lastName }}</strong>
+      </div>
+    </header>
+
+    <div class="shell-content">
+      <div class="content-stage" [class.route-enter]="routeEntering()">
+        <router-outlet></router-outlet>
+      </div>
+    </div>
+  </section>
+</div>
+<app-toast-outlet></app-toast-outlet>
+<app-assistant-widget></app-assistant-widget>
+
+

@@ -1,0 +1,190 @@
+<app-perfia-cube [onClick]="onCubeClick" [role]="cubeRole()" [isOpen]="isOpen()" label="PerfIA"></app-perfia-cube>
+
+@if (isOpen()) {
+  <section class="perfia-shell">
+    <div class="orb orb-blue" aria-hidden="true"></div>
+    <div class="orb orb-violet" aria-hidden="true"></div>
+
+    <header class="topbar">
+      <div class="topbar-left">
+        <div class="ai-avatar" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none">
+            <path
+              d="M12 2.2l1.8 4.7 4.8 1.8-4.8 1.8L12 15.2l-1.8-4.7-4.8-1.8 4.8-1.8L12 2.2zM18.3 14.9l.8 2.1 2.1.8-2.1.8-.8 2.1-.8-2.1-2.1-.8 2.1-.8.8-2.1zM6.1 14.3l.6 1.6 1.6.6-1.6.6-.6 1.6-.6-1.6-1.6-.6 1.6-.6.6-1.6z"
+              fill="#fff"
+            />
+          </svg>
+        </div>
+        <div class="identity">
+          <div class="identity-top">
+            <strong>PerfIA Assistant</strong>
+            <span class="badge-ai">AI</span>
+          </div>
+          <span class="status-line"><span class="status-dot"></span>Actif · Analyse en temps réel</span>
+        </div>
+      </div>
+
+      <div class="topbar-actions">
+        <button class="icon-btn" type="button" title="Historique" aria-label="Historique" (click)="runTopbarAction('history')">
+          <svg viewBox="0 0 24 24" fill="none">
+            <path d="M12 5v7l4.2 2.6" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" />
+            <path
+              d="M4 12a8 8 0 108-8 7.9 7.9 0 00-5.8 2.5M4 4v4h4"
+              stroke="currentColor"
+              stroke-width="1.8"
+              stroke-linecap="round"
+            />
+          </svg>
+        </button>
+        <button class="icon-btn" type="button" title="Exporter" aria-label="Exporter" (click)="runTopbarAction('export')">
+          <svg viewBox="0 0 24 24" fill="none">
+            <path d="M12 4v10m0 0l-3.2-3.2M12 14l3.2-3.2" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" />
+            <path d="M5 16.7V20h14v-3.3" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" />
+          </svg>
+        </button>
+        <button class="icon-btn" type="button" title="Paramètres" aria-label="Paramètres" (click)="runTopbarAction('settings')">
+          <svg viewBox="0 0 24 24" fill="none">
+            <path d="M12 8.8a3.2 3.2 0 100 6.4 3.2 3.2 0 000-6.4z" stroke="currentColor" stroke-width="1.8" />
+            <path
+              d="M19.4 10.6l1.1 1.4-1.2 2-1.8.1a6 6 0 01-.6 1.4l1.1 1.4-1.8 1.8-1.4-1.1a6 6 0 01-1.4.6l-.1 1.8h-2l-.1-1.8a6 6 0 01-1.4-.6l-1.4 1.1-1.8-1.8 1.1-1.4a6 6 0 01-.6-1.4L3.5 14 2.3 12l1.1-1.4 1.8-.1a6 6 0 01.6-1.4L4.7 7.7l1.8-1.8 1.4 1.1a6 6 0 011.4-.6l.1-1.8h2l.1 1.8a6 6 0 011.4.6l1.4-1.1 1.8 1.8-1.1 1.4c.3.4.5.9.6 1.4l1.8.1z"
+              stroke="currentColor"
+              stroke-width="1.2"
+            />
+          </svg>
+        </button>
+      </div>
+    </header>
+
+    @if (historyOpen()) {
+      <section class="history-wrap">
+        <header class="history-head">
+          <strong>Historique des conversations</strong>
+          <button class="history-new" type="button" (click)="startNewConversation()">+ Nouvelle</button>
+        </header>
+
+        <div class="history-list">
+          @for (entry of conversationHistory(); track entry.id) {
+            <button
+              class="history-item"
+              type="button"
+              [class.active]="entry.id === activeConversationId()"
+              (click)="openConversationFromHistory(entry.id)"
+            >
+              <div class="history-item-title">{{ entry.title }}</div>
+              <div class="history-item-preview">{{ historyPreview(entry) }}</div>
+              <div class="history-item-meta">
+                <span>{{ formatHistoryDate(entry.updatedAt) }}</span>
+                <span>{{ entry.messages.length }} msg</span>
+              </div>
+            </button>
+          }
+        </div>
+      </section>
+    } @else {
+      <div #messagesEl class="messages-wrap">
+        @for (message of messages(); track trackByMessageId($index, message)) {
+          <article class="message-row" [class.user]="message.sender === 'user'" [class.ai]="message.sender === 'assistant'">
+            @if (message.sender === 'assistant') {
+              <div class="msg-avatar ai">✦</div>
+              <div class="msg-bubble">
+                @for (section of getSections(message); track section.key) {
+                  <section class="section-block">
+                    <span class="section-tag" [class]="sectionClass(section.kind)">{{ section.label }}</span>
+                    <div class="section-text">
+                      @if (section.list) {
+                        <ul>
+                          @for (line of section.lines; track line) {
+                            <li [innerHTML]="formatLine(line)"></li>
+                          }
+                        </ul>
+                      } @else {
+                        @for (line of section.lines; track line) {
+                          <p [innerHTML]="formatLine(line)"></p>
+                        }
+                      }
+                    </div>
+                  </section>
+                }
+
+                <div class="stats-grid">
+                  @for (stat of getStats(message); track stat.label) {
+                    <article class="stat-card">
+                      <div class="stat-label">{{ stat.label }}</div>
+                      <div class="stat-value">{{ formatValue(stat.value) }}</div>
+                      <div class="stat-trend" [class]="trendClass(stat.trend)">
+                        {{ trendArrow(stat.trend) }} {{ formatTrend(stat.trend) }}
+                      </div>
+                    </article>
+                  }
+                </div>
+
+                <div class="progress-pack">
+                  @for (metric of getProgress(getStats(message)); track metric.label) {
+                    <div class="progress-line">
+                      <label>{{ metric.label }}</label>
+                      <div class="track">
+                        <div class="fill" [class]="progressFillClass(metric.tone)" [style.width.%]="metric.value"></div>
+                      </div>
+                      <span>{{ formatValue(metric.value) }}%</span>
+                    </div>
+                  }
+                </div>
+
+                <div class="divider">Session · Analyse de performance</div>
+              </div>
+            } @else {
+              <div class="msg-bubble">
+                <p>{{ message.question }}</p>
+              </div>
+              <div class="msg-avatar user">{{ accountRole() === 'CHEF_DEPARTEMENT' ? 'CD' : accountRole() === 'ADMINISTRATION' ? 'AD' : accountRole() === 'SUPER_ADMIN' ? 'SA' : 'EN' }}</div>
+            }
+          </article>
+        }
+
+        @if (pending()) {
+          <article class="message-row ai">
+            <div class="msg-avatar ai">✦</div>
+            <div class="msg-bubble">
+              <span class="typing-wrap">
+                <span class="typing-dot"></span>
+                <span class="typing-dot"></span>
+                <span class="typing-dot"></span>
+              </span>
+            </div>
+          </article>
+        }
+      </div>
+    }
+
+    <div class="quickbar">
+      @for (chip of activeQuickChips(); track chip.label) {
+        <button class="quick-chip" type="button" (click)="applyQuickChip(chip)">{{ chip.icon }} {{ chip.label }}</button>
+      }
+    </div>
+
+    <div class="inputbar">
+      <div class="input-wrap">
+        <textarea
+          #composerEl
+          class="composer"
+          rows="1"
+          [value]="draftQuestion()"
+          placeholder="Posez votre question à PerfIA..."
+          (input)="onComposerInput($event)"
+          (keydown)="onComposerKeydown($event)"
+        ></textarea>
+
+        <button class="send-btn" type="button" aria-label="Envoyer" [disabled]="!canSend()" (click)="sendMessage()">
+          <svg viewBox="0 0 24 24" fill="none" width="17" height="17">
+            <path d="M4 12l15-7-3.8 14-4.1-5.4L4 12z" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" />
+          </svg>
+        </button>
+      </div>
+    </div>
+
+    <footer class="footer">
+      <span>Données protégées · Faculté</span>
+      <span class="footer-right"><span class="small-green"></span>claude-sonnet-4 · PerfIA v2.0</span>
+    </footer>
+  </section>
+}

@@ -1,0 +1,506 @@
+﻿<div class="page-shell">
+  <section class="panel page-header">
+    <div>
+      <p class="eyebrow">Workflow</p>
+      <h1 class="section-title">Validation des activités</h1>
+    </div>
+    <div class="page-header-actions">
+      <button class="ghost-button" type="button" (click)="loadData()" [disabled]="loading() || actionLoading()">
+        {{ loading() ? 'Chargement...' : 'Actualiser' }}
+      </button>
+      <button
+        class="ghost-button icon-only-button icon-dashboard dashboard-toggle-button"
+        [class.is-active]="showWorkflowDashboard()"
+        type="button"
+        (click)="toggleWorkflowDashboard()"
+        [title]="showWorkflowDashboard() ? 'Masquer Dashboard Workflow' : 'Afficher Dashboard Workflow'"
+        [attr.aria-label]="showWorkflowDashboard() ? 'Masquer Dashboard Workflow' : 'Afficher Dashboard Workflow'"
+      ></button>
+    </div>
+  </section>
+
+  @if (errorMessage()) {
+    <div class="error-banner">{{ errorMessage() }}</div>
+  }
+
+  @if (successMessage()) {
+    <div class="success-banner">{{ successMessage() }}</div>
+  }
+
+  @if (timeoutNotice()) {
+    <div class="info-banner">{{ timeoutNotice() }}</div>
+  }
+
+  <section class="alert-grid">
+    @for (alert of workflowAlerts(); track alert.title) {
+      <article class="panel alert-card alert-{{ alert.tone }}">
+        <p class="eyebrow">Notification</p>
+        <h2>{{ alert.title }}</h2>
+        <p>{{ alert.message }}</p>
+      </article>
+    }
+  </section>
+
+  @if (showWorkflowDashboard()) {
+    <section class="panel activity-dashboard-panel">
+      <div class="activity-dashboard-head">
+        <div>
+          <p class="eyebrow">Dashboard historique</p>
+          <h2 class="section-title">Historique global des activites</h2>
+          <p class="activity-dashboard-subtitle">Lecture rapide du statut global et de la tendance temporelle.</p>
+        </div>
+      </div>
+
+      <div class="metric-grid compact-metrics">
+        <article class="metric-card">
+          <span>Activites totales</span>
+          <strong>{{ workflowStatusCounts().total }}</strong>
+        </article>
+        <article class="metric-card">
+          <span>Validees</span>
+          <strong>{{ workflowStatusCounts().validated }}</strong>
+        </article>
+        <article class="metric-card">
+          <span>Rejetees</span>
+          <strong>{{ workflowStatusCounts().rejected }}</strong>
+        </article>
+        <article class="metric-card">
+          <span>En attente</span>
+          <strong>{{ workflowStatusCounts().pending }}</strong>
+        </article>
+      </div>
+
+      <div class="activity-dashboard-grid">
+        <app-chart-panel
+          title="Statuts des activites"
+          subtitle="Distribution validees / rejetees / en attente."
+          type="doughnut"
+          [data]="workflowStatusChartData()"
+          [height]="280"
+        ></app-chart-panel>
+
+        <app-chart-panel
+          title="Activites dans le temps"
+          subtitle="Evolution mensuelle des activites visibles."
+          type="line"
+          [data]="workflowTrendChartData()"
+          [height]="280"
+          [legend]="false"
+        ></app-chart-panel>
+      </div>
+    </section>
+  }
+
+  @if (selectedDetailActivity(); as activity) {
+    <section id="workflow-detail-section" class="panel spotlight-panel">
+      <div class="spotlight-header">
+        <div>
+          <p class="eyebrow">Dossier sélectionné</p>
+          <h2 class="section-title">{{ activity.title }}</h2>
+          <p class="section-copy">
+            {{ activity.teacherName }} - {{ activity.subtitle }} - {{ activity.academicYear }}
+          </p>
+        </div>
+        <span class="status-pill status-{{ statusTone(activity.status) }}">{{ activity.status }}</span>
+      </div>
+
+      @if (selectedStatusMeta(); as meta) {
+        <div class="selected-banner selected-banner-{{ meta.tone }}">
+          <strong>{{ meta.title }}</strong>
+          <p>{{ meta.message }}</p>
+        </div>
+      }
+
+      <div class="detail-grid">
+        <div>
+          <span class="detail-label">Type d’activité</span>
+          <strong>{{ activityTypeLabel(activity.activityType) }}</strong>
+        </div>
+        <div>
+          <span class="detail-label">{{ activity.metricLabel }}</span>
+          <strong>{{ activity.metricValue }}</strong>
+        </div>
+        <div>
+          <span class="detail-label">Année universitaire</span>
+          <strong>{{ activity.academicYear }}</strong>
+        </div>
+        <div>
+          <span class="detail-label">Dernière décision</span>
+          <strong>{{ selectedLatestDecisionText() }}</strong>
+        </div>
+        <div class="full-width">
+          <span class="detail-label">Résumé</span>
+          <strong>{{ activity.summary }}</strong>
+        </div>
+      </div>
+
+      <div class="progress-grid">
+        @for (step of selectedProgressSteps(); track step.label) {
+          <article class="progress-step progress-{{ step.state }}">
+            <strong>{{ step.label }}</strong>
+            <span>{{ step.subtitle }}</span>
+          </article>
+        }
+      </div>
+
+    </section>
+  }
+
+  @if (reviewDraft(); as draft) {
+    <section class="panel review-panel review-panel-{{ reviewTone() }}">
+      <div class="review-header">
+        <div>
+          <p class="eyebrow">Décision en cours</p>
+          <h2 class="section-title">{{ reviewTitle() }}</h2>
+          <p class="section-copy">
+            {{ draft.activity.title }} - {{ draft.activity.teacherName }} - {{ activityTypeLabel(draft.activity.activityType) }}
+          </p>
+        </div>
+        <span class="decision-pill decision-{{ reviewTone() }}">{{ decisionLabel(draft.decision) }}</span>
+      </div>
+
+      <label class="field">
+        <span>Motif de la décision</span>
+        <textarea
+          rows="4"
+          [value]="reviewComment()"
+          (input)="updateReviewComment($any($event.target).value)"
+          placeholder="Ajoutez un commentaire si nécessaire"
+        ></textarea>
+      </label>
+
+      @if (reviewRequiresComment()) {
+        <p class="review-note">Un commentaire est obligatoire pour une demande de correction ou un rejet.</p>
+      }
+
+      <div class="review-actions">
+        <button class="primary-button" type="button" (click)="submitReview()" [disabled]="actionLoading()">
+          {{ actionLoading() ? 'Enregistrement...' : 'Confirmer la décision' }}
+        </button>
+        <button class="ghost-button" type="button" (click)="closeReview()" [disabled]="actionLoading()">
+          Annuler
+        </button>
+      </div>
+    </section>
+  }
+
+  <section class="panel">
+      <p class="eyebrow">Synthèse</p>
+    <div class="metric-grid">
+      <article class="metric-card accent-card">
+        <span>Activités visibles</span>
+        <strong>{{ displayedAccessibleActivities().length }}</strong>
+      </article>
+      <article class="metric-card">
+        <span>En attente du département</span>
+        <strong>{{ departmentPending().length }}</strong>
+      </article>
+      <article class="metric-card">
+        <span>En attente finale</span>
+        <strong>{{ finalPending().length }}</strong>
+      </article>
+      <article class="metric-card">
+        <span>Décisions commentées</span>
+        <strong>{{ selectedCommentCount() }}</strong>
+      </article>
+    </div>
+  </section>
+
+  <section class="panel">
+    <p class="eyebrow">Recherche</p>
+    <div class="filter-grid">
+      <label class="field">
+        <span>Filtrer les activités visibles</span>
+        <input
+          [value]="workflowSearchTerm()"
+          (input)="updateWorkflowSearchTerm($any($event.target).value)"
+          placeholder="Titre, type, enseignant ou résumé"
+        />
+      </label>
+    </div>
+  </section>
+
+  @if (canDepartmentReview()) {
+    <section class="panel">
+      <div class="history-header">
+        <div class="history-header-copy">
+          <p class="eyebrow">Chef de département</p>
+          <h2 class="section-title">Dossiers a traiter</h2>
+        </div>
+        @if (hasDepartmentPendingToggle()) {
+          <button
+            class="ghost-button icon-only-button history-toggle-button"
+            type="button"
+            (click)="toggleDepartmentPendingVisibility()"
+            [class.is-expanded]="showFullDepartmentPending()"
+            [title]="departmentPendingToggleLabel()"
+            [attr.aria-label]="departmentPendingToggleLabel()"
+          >
+          </button>
+        }
+      </div>
+
+      @if (departmentPending().length === 0) {
+        <p class="section-copy">Aucun dossier n’attend actuellement une validation départementale.</p>
+      } @else {
+        <div class="table-wrapper">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>Activité</th>
+                <th>Type</th>
+                <th>Enseignant</th>
+                <th>Repere</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (activity of displayedDepartmentPending(); track activity.id) {
+                <tr>
+                  <td>
+                    <strong>{{ activity.title }}</strong>
+                    <div class="table-meta">{{ activity.subtitle }} - {{ activity.academicYear }}</div>
+                  </td>
+                  <td>{{ activityTypeLabel(activity.activityType) }}</td>
+                  <td>{{ activity.teacherName }}</td>
+                  <td>{{ activity.metricValue }}</td>
+                  <td class="action-cell actions-crud">
+                    <button
+                      class="link-button detail-link icon-only-button icon-view"
+                      type="button"
+                      (click)="openActivityInsights(activity)"
+                      title="Historique et détails"
+                      aria-label="Historique et détails"
+                    ></button>
+                    <button
+                      class="link-button approve-link icon-only-button icon-submit"
+                      type="button"
+                      (click)="reviewDepartment(activity, 'VALIDE')"
+                      title="Valider"
+                      aria-label="Valider"
+                    ></button>
+                    <button
+                      class="link-button warn-link icon-only-button icon-edit"
+                      type="button"
+                      (click)="reviewDepartment(activity, 'A_CORRIGER')"
+                      title="A corriger"
+                      aria-label="A corriger"
+                    ></button>
+                    <button
+                      class="link-button danger-link icon-only-button icon-delete"
+                      type="button"
+                      (click)="reviewDepartment(activity, 'REJETE')"
+                      title="Rejeter"
+                      aria-label="Rejeter"
+                    ></button>
+                  </td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        </div>
+      }
+    </section>
+  }
+
+  @if (canFinalReview()) {
+    <section class="panel">
+      <div class="history-header">
+        <div class="history-header-copy">
+          <p class="eyebrow">Administration</p>
+          <h2 class="section-title">Validation finale</h2>
+        </div>
+        @if (hasFinalPendingToggle()) {
+          <button
+            class="ghost-button icon-only-button history-toggle-button"
+            type="button"
+            (click)="toggleFinalPendingVisibility()"
+            [class.is-expanded]="showFullFinalPending()"
+            [title]="finalPendingToggleLabel()"
+            [attr.aria-label]="finalPendingToggleLabel()"
+          >
+          </button>
+        }
+      </div>
+
+      @if (finalPending().length === 0) {
+        <p class="section-copy">Aucun dossier n’attend actuellement une validation finale.</p>
+      } @else {
+        <div class="table-wrapper">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>Activité</th>
+                <th>Type</th>
+                <th>Enseignant</th>
+                <th>Statut</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (activity of displayedFinalPending(); track activity.id) {
+                <tr>
+                  <td>
+                    <strong>{{ activity.title }}</strong>
+                    <div class="table-meta">{{ activity.subtitle }}</div>
+                  </td>
+                  <td>{{ activityTypeLabel(activity.activityType) }}</td>
+                  <td>{{ activity.teacherName }}</td>
+                  <td><span class="status-pill status-{{ statusTone(activity.status) }}">{{ activity.status }}</span></td>
+                  <td class="action-cell actions-crud">
+                    <button
+                      class="link-button detail-link icon-only-button icon-view"
+                      type="button"
+                      (click)="openActivityInsights(activity)"
+                      title="Historique et détails"
+                      aria-label="Historique et détails"
+                    ></button>
+                    <button
+                      class="link-button approve-link icon-only-button icon-submit"
+                      type="button"
+                      (click)="reviewFinal(activity, 'VALIDE')"
+                      title="Valider"
+                      aria-label="Valider"
+                    ></button>
+                    <button
+                      class="link-button warn-link icon-only-button icon-edit"
+                      type="button"
+                      (click)="reviewFinal(activity, 'A_CORRIGER')"
+                      title="A corriger"
+                      aria-label="A corriger"
+                    ></button>
+                    <button
+                      class="link-button danger-link icon-only-button icon-delete"
+                      type="button"
+                      (click)="reviewFinal(activity, 'REJETE')"
+                      title="Rejeter"
+                      aria-label="Rejeter"
+                    ></button>
+                  </td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        </div>
+      }
+    </section>
+  }
+
+    <section id="workflow-history-section" class="panel history-layout">
+    <div class="history-header">
+      <div class="history-header-copy">
+        <p class="eyebrow">Consultation</p>
+        <h2 class="section-title">Activités et statuts</h2>
+      </div>
+      @if (hasHistoryToggle()) {
+        <button
+          class="ghost-button icon-only-button history-toggle-button"
+          type="button"
+          (click)="toggleHistoryVisibility()"
+          [class.is-expanded]="showFullHistory()"
+          [title]="historyToggleLabel()"
+          [attr.aria-label]="historyToggleLabel()"
+        >
+        </button>
+      }
+    </div>
+
+    <div class="table-wrapper">
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>Activité</th>
+            <th>Type</th>
+            <th>Enseignant</th>
+            <th>Statut</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (activity of displayedAccessibleActivities(); track activity.id) {
+            <tr>
+              <td>
+                <strong>{{ activity.title }}</strong>
+                <div class="table-meta">{{ activity.subtitle }}</div>
+              </td>
+              <td>{{ activityTypeLabel(activity.activityType) }}</td>
+              <td>{{ activity.teacherName }}</td>
+              <td><span class="status-pill status-{{ statusTone(activity.status) }}">{{ activity.status }}</span></td>
+              <td class="action-cell">
+                <button
+                  class="link-button detail-link icon-only-button icon-view"
+                  type="button"
+                  (click)="openActivityInsights(activity)"
+                  title="Historique et détails"
+                  aria-label="Historique et détails"
+                ></button>
+              </td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    </div>
+
+    @if (showInlineHistoryDetails()) {
+      <div class="history-inline">
+        <div class="history-panel-header">
+          <div class="history-panel-copy">
+            <p class="eyebrow">Historique détaillé</p>
+            <h3>{{ selectedActivity()?.title || 'Aucune activité sélectionnée' }}</h3>
+          </div>
+          @if (hasTimelineToggle()) {
+            <button
+              class="ghost-button icon-only-button history-toggle-button"
+              type="button"
+              (click)="toggleTimelineVisibility()"
+              [class.is-expanded]="showFullTimeline()"
+              [title]="timelineToggleLabel()"
+              [attr.aria-label]="timelineToggleLabel()"
+            >
+            </button>
+          }
+        </div>
+
+        <div class="history-summary">
+          <article>
+            <span>Dernière décision</span>
+            <strong>{{ selectedLatestDecisionText() }}</strong>
+          </article>
+          <article>
+            <span>Dernier acteur</span>
+            <strong>{{ selectedLatestActorText() }}</strong>
+          </article>
+          <article>
+            <span>Étapes historisées</span>
+            <strong>{{ historyTimeline().length }}</strong>
+          </article>
+        </div>
+
+        @if (!selectedActivity()) {
+          <p class="section-copy">Sélectionnez d'abord une ligne de l'historique pour consulter un dossier.</p>
+        } @else if (historyLoading()) {
+          <p class="section-copy">Chargement de l'historique...</p>
+        } @else if (historyTimeline().length === 0) {
+          <p class="section-copy">Aucune étape de validation n'est encore disponible pour cette activité.</p>
+        } @else {
+          <div class="history-steps">
+            @for (step of displayedHistoryTimeline(); track step.id) {
+              <article class="history-step">
+                <div class="history-topline">
+                  <span class="decision-pill decision-{{ historyDecisionTone(step.decision) }}">{{ step.decision }}</span>
+                  <small>{{ step.decidedAt | date: 'dd/MM/yyyy HH:mm' }}</small>
+                </div>
+                <strong>{{ step.validationLevel }}</strong>
+                <span>{{ step.actorName }} ({{ step.actorRole }})</span>
+                @if (step.commentText) {
+                  <p>{{ step.commentText }}</p>
+                }
+              </article>
+            }
+          </div>
+        }
+      </div>
+    }
+  </section>
+</div>
+

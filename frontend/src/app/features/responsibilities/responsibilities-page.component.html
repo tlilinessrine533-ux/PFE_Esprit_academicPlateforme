@@ -1,0 +1,387 @@
+<div class="page-shell">
+  <section class="panel page-header">
+    <div>
+      <p class="eyebrow">Responsabilites</p>
+      <h1 class="section-title">{{ isCreatePage ? 'Ajouter une responsabilite' : 'Responsabilites academiques' }}</h1>
+    </div>
+
+    <div class="page-header-actions">
+      @if (isCreatePage) {
+        <button class="ghost-button" type="button" (click)="goToListPage()">Retour a la liste</button>
+      } @else {
+        @if (canCreate()) {
+          <button
+            class="primary-button icon-only-button icon-add"
+            type="button"
+            (click)="goToCreatePage()"
+            title="Ajouter une responsabilite"
+            aria-label="Ajouter une responsabilite"
+          ></button>
+        }
+        <button class="ghost-button" type="button" (click)="loadData()" [disabled]="loading()">
+          {{ loading() ? 'Chargement...' : 'Actualiser' }}
+        </button>
+        <button
+          class="ghost-button icon-only-button icon-dashboard dashboard-toggle-button"
+          [class.is-active]="showActivityDashboard()"
+          type="button"
+          (click)="toggleActivityDashboard()"
+          [title]="showActivityDashboard() ? 'Masquer Dashboard Responsabilites' : 'Afficher Dashboard Responsabilites'"
+          [attr.aria-label]="showActivityDashboard() ? 'Masquer Dashboard Responsabilites' : 'Afficher Dashboard Responsabilites'"
+        ></button>
+      }
+    </div>
+  </section>
+
+  @if (errorMessage()) {
+    <div class="error-banner">{{ errorMessage() }}</div>
+  }
+
+  @if (successMessage()) {
+    <div class="success-banner">{{ successMessage() }}</div>
+  }
+
+  @if (isCreatePage) {
+    <section class="panel">
+      <p class="eyebrow">Nouvelle responsabilite</p>
+      <h2 class="section-title">Ajouter une responsabilite academique</h2>
+
+      <form class="form-grid" [formGroup]="createForm" (ngSubmit)="createResponsibility()">
+        <label class="field">
+          <span>Type</span>
+          <select formControlName="responsibilityType">
+            @for (type of responsibilityTypes; track type) {
+              <option [value]="type">{{ responsibilityTypeLabel(type) }}</option>
+            }
+          </select>
+        </label>
+
+        <label class="field">
+          <span>Date de debut</span>
+          <input formControlName="startDate" type="date" />
+        </label>
+
+        <label class="field">
+          <span>Date de fin</span>
+          <input formControlName="endDate" type="date" />
+        </label>
+
+        <label class="field">
+          <span>Annee universitaire</span>
+          <input formControlName="academicYear" />
+        </label>
+
+        <div class="detail-actions full-width">
+          <button class="primary-button" type="submit" [disabled]="saving()">
+            {{ saving() ? 'Enregistrement...' : 'Enregistrer la responsabilite' }}
+          </button>
+          <button class="ghost-button" type="button" (click)="goToListPage()">Annuler</button>
+        </div>
+      </form>
+    </section>
+  } @else {
+    @if (summary(); as summaryValue) {
+      <section class="panel">
+        <p class="eyebrow">Resume</p>
+        <div class="metric-grid">
+          <article class="metric-card accent-card">
+            <span>Total responsabilites</span>
+            <strong>{{ summaryValue.totalResponsibilities }}</strong>
+          </article>
+          <article class="metric-card">
+            <span>Responsabilites actives</span>
+            <strong>{{ summaryValue.totalActiveResponsibilities }}</strong>
+          </article>
+          <article class="metric-card">
+            <span>Responsabilites terminees</span>
+            <strong>{{ summaryValue.totalCompletedResponsibilities }}</strong>
+          </article>
+          <article class="metric-card">
+            <span>Postes de pilotage</span>
+            <strong>{{ summaryValue.totalLeadershipResponsibilities }}</strong>
+          </article>
+          <article class="metric-card">
+            <span>Responsabilites academiques</span>
+            <strong>{{ responsibilityTypeBreakdown().academique }}</strong>
+          </article>
+          <article class="metric-card">
+            <span>Direction</span>
+            <strong>{{ responsibilityTypeBreakdown().direction }}</strong>
+          </article>
+        </div>
+      </section>
+    }
+
+    @if (showActivityDashboard()) {
+      <section class="panel activity-dashboard-panel">
+        <div class="activity-dashboard-head">
+          <div>
+            <p class="eyebrow">Dashboard activite</p>
+            <h2 class="section-title">{{ responsibilityComparisonTitle() }}</h2>
+            <p class="activity-dashboard-subtitle">Annee universitaire {{ dashboardPeriodLabel() }}</p>
+          </div>
+          <span class="activity-dashboard-year">Responsabilite</span>
+        </div>
+
+        @if (dashboardInsightsError()) {
+          <p class="activity-dashboard-note activity-dashboard-note--error">{{ dashboardInsightsError() }}</p>
+        } @else if (dashboardInsightsLoading()) {
+          <p class="activity-dashboard-note">Chargement du dashboard responsabilite...</p>
+        } @else {
+          <p class="activity-dashboard-note">{{ responsibilityComparisonNote() }}</p>
+        }
+
+        <div class="activity-dashboard-grid">
+          <app-chart-panel
+            title="Comparatif responsabilite"
+            [subtitle]="responsibilityComparisonSubtitle()"
+            type="bar"
+            [data]="responsibilityComparisonChartData()"
+            [height]="280"
+            [legend]="false"
+          ></app-chart-panel>
+
+          <app-chart-panel
+            title="Evolution annuelle responsabilite"
+            [subtitle]="responsibilityTrendSubtitle()"
+            type="line"
+            [data]="responsibilityTrendChartData()"
+            [height]="280"
+            [legend]="false"
+          ></app-chart-panel>
+
+          <app-chart-panel
+            title="Repartition par type de responsabilite"
+            subtitle="Part de chaque type institutionnel sur la periode active."
+            type="doughnut"
+            [data]="responsibilityDistributionChartData()"
+            [height]="280"
+          ></app-chart-panel>
+        </div>
+      </section>
+    }
+
+    <section class="panel">
+      <p class="eyebrow">Filtres</p>
+      <div class="filter-grid">
+        <label class="field">
+          <span>Recherche</span>
+          <input
+            [value]="searchTerm()"
+            (input)="updateSearchTerm($any($event.target).value)"
+            placeholder="Type, enseignant, annee"
+          />
+        </label>
+
+        <label class="field">
+          <span>Type</span>
+          <select [value]="typeFilter()" (change)="updateTypeFilter($any($event.target).value)">
+            @for (type of responsibilityTypeFilters; track type) {
+              <option [value]="type">{{ responsibilityTypeLabel(type) }}</option>
+            }
+          </select>
+        </label>
+
+        <label class="field">
+          <span>Etat</span>
+          <select [value]="stateFilter()" (change)="updateStateFilter($any($event.target).value)">
+            @for (state of stateFilters; track state) {
+              <option [value]="state">{{ state }}</option>
+            }
+          </select>
+        </label>
+      </div>
+
+      <div class="metric-grid compact-metrics">
+        <article class="metric-card">
+          <span>Resultats visibles</span>
+          <strong>{{ displayedActivities().length }}</strong>
+        </article>
+        <article class="metric-card">
+          <span>Actives visibles</span>
+          <strong>{{ visibleActiveCount() }}</strong>
+        </article>
+        <article class="metric-card">
+          <span>Pilotage visible</span>
+          <strong>{{ visibleLeadershipCount() }}</strong>
+        </article>
+      </div>
+    </section>
+
+    <section class="panel">
+      <div class="history-header">
+        <div class="history-header-copy">
+          <p class="eyebrow">Historique</p>
+          <h2 class="section-title">Liste des responsabilites</h2>
+        </div>
+
+        @if (hasHistoryToggle()) {
+          <button
+            class="ghost-button icon-only-button history-toggle-button"
+            [class.is-expanded]="showFullHistory()"
+            type="button"
+            (click)="toggleHistoryVisibility()"
+            [title]="historyToggleLabel()"
+            [attr.aria-label]="historyToggleLabel()"
+          ></button>
+        }
+      </div>
+
+      <div class="table-wrapper">
+        <table class="data-table responsibilities-table">
+          <thead>
+            <tr>
+              <th>Type</th>
+              <th>Debut</th>
+              <th>Fin</th>
+              <th>Etat</th>
+              <th>Enseignant</th>
+              <th class="action-col">Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (activity of displayedActivities(); track activity.id) {
+              <tr>
+                <td class="type-cell">
+                  <strong>{{ formatResponsibilityType(activity.responsibilityType) }}</strong>
+                  <div class="table-meta">{{ activity.academicYear }}</div>
+                </td>
+                <td>{{ activity.startDate | date: 'dd/MM/yyyy' }}</td>
+                <td>{{ activity.endDate ? (activity.endDate | date: 'dd/MM/yyyy') : 'En cours' }}</td>
+                <td>{{ activityState(activity) }}</td>
+                <td>{{ activity.teacherName }}</td>
+                <td class="action-cell">
+                  <div class="action-stack">
+                    <button
+                      class="link-button detail-link icon-only-button icon-view"
+                      type="button"
+                      (click)="selectActivity(activity)"
+                      title="Voir les details"
+                      aria-label="Voir les details"
+                    ></button>
+                    @if (canManage(activity)) {
+                      @if (canSubmit(activity)) {
+                        <button
+                          class="link-button approve-link icon-only-button icon-submit"
+                          type="button"
+                          (click)="submitActivity(activity)"
+                          title="Soumettre"
+                          aria-label="Soumettre"
+                        ></button>
+                      }
+                      <button
+                        class="link-button edit-link icon-only-button icon-edit"
+                        type="button"
+                        (click)="startEditing(activity)"
+                        title="Modifier"
+                        aria-label="Modifier"
+                      ></button>
+                      <button
+                        class="link-button danger-link icon-only-button icon-delete"
+                        type="button"
+                        (click)="deleteResponsibility(activity)"
+                        title="Supprimer"
+                        aria-label="Supprimer"
+                      ></button>
+                    }
+                  </div>
+                </td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    @if (selectedActivity(); as activity) {
+      <section #detailSection class="detail-layout single-panel">
+        <div class="panel detail-panel">
+          <div class="detail-header">
+            <div class="detail-header-copy">
+              <p class="eyebrow">Fiche detail</p>
+              <h2 class="section-title">
+                {{ editingActivityId() === activity.id ? 'Modifier la responsabilite' : formatResponsibilityType(activity.responsibilityType) }}
+              </h2>
+            </div>
+
+            @if (canManage(activity) && editingActivityId() !== activity.id) {
+              <button
+                class="ghost-button detail-edit-button icon-only-button icon-edit"
+                type="button"
+                (click)="startEditing(activity)"
+                title="Modifier"
+                aria-label="Modifier"
+              ></button>
+            }
+          </div>
+
+          @if (editingActivityId() === activity.id) {
+            <form class="form-grid" [formGroup]="editForm" (ngSubmit)="saveEdit()">
+              <label class="field">
+                <span>Type</span>
+                <select formControlName="responsibilityType">
+                  @for (type of responsibilityTypes; track type) {
+                    <option [value]="type">{{ responsibilityTypeLabel(type) }}</option>
+                  }
+                </select>
+              </label>
+
+              <label class="field">
+                <span>Date de debut</span>
+                <input formControlName="startDate" type="date" />
+              </label>
+
+              <label class="field">
+                <span>Date de fin</span>
+                <input formControlName="endDate" type="date" />
+              </label>
+
+              <label class="field">
+                <span>Annee universitaire</span>
+                <input formControlName="academicYear" />
+              </label>
+
+              <div class="detail-actions full-width">
+                <button class="primary-button" type="submit" [disabled]="saving()">
+                  {{ saving() ? 'Enregistrement...' : 'Enregistrer les modifications' }}
+                </button>
+                <button class="ghost-button" type="button" (click)="cancelEditing()">Annuler</button>
+              </div>
+            </form>
+          } @else {
+            <div class="detail-grid">
+              <div>
+                <span class="detail-label">Type</span>
+                <strong>{{ formatResponsibilityType(activity.responsibilityType) }}</strong>
+              </div>
+              <div>
+                <span class="detail-label">Etat</span>
+                <strong>{{ activityState(activity) }}</strong>
+              </div>
+              <div>
+                <span class="detail-label">Date de debut</span>
+                <strong>{{ activity.startDate | date: 'dd/MM/yyyy' }}</strong>
+              </div>
+              <div>
+                <span class="detail-label">Date de fin</span>
+                <strong>{{ activity.endDate ? (activity.endDate | date: 'dd/MM/yyyy') : 'En cours' }}</strong>
+              </div>
+              <div>
+                <span class="detail-label">Statut workflow</span>
+                <strong>{{ activity.status }}</strong>
+              </div>
+              <div>
+                <span class="detail-label">Enseignant</span>
+                <strong>{{ activity.teacherName }}</strong>
+              </div>
+              <div>
+                <span class="detail-label">Annee universitaire</span>
+                <strong>{{ activity.academicYear }}</strong>
+              </div>
+            </div>
+          }
+        </div>
+      </section>
+    }
+  }
+</div>

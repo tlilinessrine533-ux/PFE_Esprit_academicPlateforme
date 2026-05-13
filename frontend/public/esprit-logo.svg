@@ -1,0 +1,56 @@
+<svg width="640" height="280" viewBox="0 0 640 280" fill="none" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="xMidYMid meet">
+  <rect width="640" height="280" fill="white"/>
+  <g transform="translate(10 24)">
+    <text
+      x="0"
+      y="116"
+      fill="#0C0C0E"
+      font-family="Arial Black, Arial, Helvetica, sans-serif"
+      font-size="138"
+      font-weight="900"
+      letter-spacing="-12"
+    >
+      espr
+    </text>
+    <text
+      x="384"
+      y="116"
+      fill="#C7CBD3"
+      font-family="Arial Black, Arial, Helvetica, sans-serif"
+      font-size="138"
+      font-weight="900"
+      letter-spacing="-12"
+    >
+      it
+    </text>
+    <polygon points="560,42 620,66 560,90" fill="#D82A2A"/>
+    <line x1="218" y1="126" x2="516" y2="126" stroke="#14151A" stroke-width="5"/>
+    <rect x="225" y="129" width="268" height="34" fill="white"/>
+    <text
+      x="359"
+      y="153"
+      fill="#111216"
+      font-family="Arial, Helvetica, sans-serif"
+      font-size="31"
+      font-weight="700"
+      text-anchor="middle"
+    >
+      Se former autrement
+    </text>
+    <rect x="0" y="176" width="520" height="8" fill="#D82A2A"/>
+    <text
+      x="260"
+      y="242"
+      fill="#111216"
+      font-family="Arial, Helvetica, sans-serif"
+      font-size="30"
+      font-weight="700"
+      letter-spacing="8"
+      text-anchor="middle"
+      textLength="520"
+      lengthAdjust="spacingAndGlyphs"
+    >
+      HONORIS UNITED UNIVERSITIES
+    </text>
+  </g>
+</svg>

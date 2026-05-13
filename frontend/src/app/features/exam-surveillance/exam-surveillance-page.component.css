@@ -1,0 +1,248 @@
+.page-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: end;
+  gap: 1rem;
+}
+
+.page-header-actions {
+  display: flex;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.form-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1rem;
+}
+
+.filter-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.5fr) minmax(220px, 0.8fr);
+  gap: 1rem;
+}
+
+.compact-metrics {
+  margin-top: 1rem;
+}
+
+.compact-metrics .metric-card strong {
+  font-size: 1.35rem;
+}
+
+.activity-dashboard-panel {
+  display: grid;
+  gap: 1rem;
+}
+
+.activity-dashboard-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 1rem;
+}
+
+.activity-dashboard-subtitle {
+  margin: 0.3rem 0 0;
+  color: var(--muted);
+}
+
+.activity-dashboard-year {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.36rem 0.68rem;
+  border-radius: 999px;
+  border: 1px solid var(--panel-border);
+  background: var(--panel-alt);
+  font-size: 0.76rem;
+  font-weight: 700;
+}
+
+.activity-dashboard-note {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.88rem;
+}
+
+.activity-dashboard-note--warning,
+.activity-dashboard-note--error {
+  color: #b42318;
+}
+
+.activity-dashboard-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1rem;
+}
+
+.full-width {
+  grid-column: 1 / -1;
+}
+
+.exam-surveillance-table {
+  min-width: 1200px;
+  table-layout: fixed;
+}
+
+.exam-surveillance-table .col-session {
+  width: 24%;
+}
+
+.exam-surveillance-table .col-semester {
+  width: 11%;
+}
+
+.exam-surveillance-table .col-day {
+  width: 12%;
+}
+
+.exam-surveillance-table .col-points {
+  width: 10%;
+}
+
+.exam-surveillance-table .col-status {
+  width: 13%;
+}
+
+.exam-surveillance-table .col-teacher {
+  width: 14%;
+}
+
+.exam-surveillance-table .col-actions {
+  width: 16.5rem;
+}
+
+.exam-surveillance-table thead th {
+  white-space: nowrap;
+  vertical-align: middle;
+}
+
+.exam-surveillance-table th,
+.exam-surveillance-table td {
+  vertical-align: middle;
+}
+
+.exam-surveillance-table th.col-actions,
+.exam-surveillance-table td.col-actions {
+  text-align: right;
+}
+
+.exam-surveillance-table td.action-cell {
+  display: table-cell;
+  min-width: 16.5rem;
+  white-space: nowrap;
+  vertical-align: middle;
+}
+
+.exam-surveillance-actions {
+  display: flex;
+  flex-wrap: nowrap;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 0.45rem;
+  width: 100%;
+}
+
+.exam-surveillance-actions .link-button {
+  flex: 0 0 auto;
+}
+
+.history-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
+
+.history-header-copy {
+  min-width: 0;
+}
+
+.history-header-copy .section-title {
+  margin-bottom: 0;
+}
+
+.history-toggle-button {
+  flex-shrink: 0;
+}
+
+.history-toggle-button::before {
+  mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+  -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+  transition: transform 0.2s ease;
+}
+
+.history-toggle-button.is-expanded::before {
+  transform: rotate(180deg);
+}
+
+.danger-link {
+  color: var(--danger);
+}
+
+.detail-layout {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1rem;
+}
+
+.detail-layout.single-panel {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.detail-panel {
+  display: grid;
+  gap: 1rem;
+}
+
+.detail-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1rem;
+}
+
+.detail-label {
+  display: block;
+  margin-bottom: 0.35rem;
+  color: var(--muted);
+  font-size: 0.82rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.detail-actions {
+  display: flex;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+@media (max-width: 900px) {
+  .page-header {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .page-header-actions {
+    justify-content: stretch;
+  }
+
+  .form-grid,
+  .activity-dashboard-grid,
+  .filter-grid,
+  .detail-layout,
+  .detail-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .activity-dashboard-head {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .history-header {
+    align-items: center;
+  }
+}

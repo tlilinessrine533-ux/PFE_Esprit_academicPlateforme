@@ -1,0 +1,357 @@
+<div class="page-shell events-shell">
+  <section class="panel page-header">
+    <div>
+      <p class="eyebrow">Evenements</p>
+      <h1 class="section-title">{{ isCreatePage ? 'Ajouter un evenement' : 'Organisation des evenements academiques' }}</h1>
+    </div>
+
+    <div class="page-header-actions">
+      @if (isCreatePage) {
+        <button class="ghost-button" type="button" (click)="goToListPage()">Retour a la liste</button>
+      } @else {
+        @if (canCreate()) {
+          <button
+            class="primary-button icon-only-button icon-add"
+            type="button"
+            (click)="goToCreatePage()"
+            title="Ajouter un evenement"
+            aria-label="Ajouter un evenement"
+          ></button>
+        }
+        <button class="ghost-button" type="button" (click)="loadData()" [disabled]="loading()">
+          {{ loading() ? 'Chargement...' : 'Actualiser' }}
+        </button>
+        <button
+          class="ghost-button icon-only-button icon-dashboard dashboard-toggle-button"
+          [class.is-active]="showActivityDashboard()"
+          type="button"
+          (click)="toggleActivityDashboard()"
+          [title]="showActivityDashboard() ? 'Masquer Dashboard Evenements' : 'Afficher Dashboard Evenements'"
+          [attr.aria-label]="showActivityDashboard() ? 'Masquer Dashboard Evenements' : 'Afficher Dashboard Evenements'"
+        ></button>
+      }
+    </div>
+  </section>
+
+  @if (errorMessage()) {
+    <div class="error-banner">{{ errorMessage() }}</div>
+  }
+
+  @if (successMessage()) {
+    <div class="success-banner">{{ successMessage() }}</div>
+  }
+
+  @if (isCreatePage) {
+    <section class="panel">
+      <p class="eyebrow">Nouvel evenement</p>
+      <h2 class="section-title">Ajouter un evenement</h2>
+
+      <form class="form-grid" [formGroup]="createForm" (ngSubmit)="createEvent()">
+        <label class="field">
+          <span>Type</span>
+          <select formControlName="eventType">
+            @for (type of eventTypes; track type) {
+              <option [value]="type">{{ typeLabel(type) }}</option>
+            }
+          </select>
+        </label>
+
+        <label class="field">
+          <span>Date</span>
+          <input formControlName="eventDate" type="date" />
+        </label>
+
+        <label class="field full-width">
+          <span>Titre</span>
+          <input formControlName="title" />
+        </label>
+
+        @if (isScientificEventType(createForm.controls.eventType.value)) {
+          <label class="field">
+            <span>Ponderation</span>
+            <select formControlName="organizationRole">
+              @for (role of scientificRoles; track role) {
+                <option [value]="role">{{ roleOptionLabel(role) }}</option>
+              }
+            </select>
+          </label>
+        }
+
+        <label class="field">
+          <span>Annee universitaire</span>
+          <input formControlName="academicYear" />
+        </label>
+
+        <label class="field">
+          <span>Points attribues</span>
+          <input
+            [value]="pointsPreview(createForm.controls.eventType.value, createForm.controls.organizationRole.value)"
+            readonly
+          />
+        </label>
+
+        <div class="detail-actions full-width">
+          <button class="primary-button" type="submit" [disabled]="saving()">
+            {{ saving() ? 'Enregistrement...' : "Enregistrer l'evenement" }}
+          </button>
+          <button class="ghost-button" type="button" (click)="goToListPage()">Annuler</button>
+        </div>
+      </form>
+    </section>
+  } @else {
+    <section class="panel">
+      <p class="eyebrow">Resume</p>
+      <div class="metric-grid">
+        <article class="metric-card accent-card">
+          <span>Nombre d'evenements</span>
+          <strong>{{ eventKpiTotals().totalEvents }}</strong>
+        </article>
+        <article class="metric-card">
+          <span>Seminaires</span>
+          <strong>{{ eventKpiTotals().totalSeminars }}</strong>
+        </article>
+        <article class="metric-card">
+          <span>Formations / workshops</span>
+          <strong>{{ eventKpiTotals().totalFormations }}</strong>
+        </article>
+        <article class="metric-card">
+          <span>Points evenements</span>
+          <strong>{{ eventKpiTotals().totalPoints | number: '1.0-2' }}</strong>
+        </article>
+        <article class="metric-card">
+          <span>Activites de l'ecole</span>
+          <strong>{{ eventKpiTotals().totalSchoolActivities }}</strong>
+        </article>
+      </div>
+    </section>
+
+    @if (showActivityDashboard()) {
+      <section class="panel activity-dashboard-panel">
+        <div class="activity-dashboard-head">
+          <div>
+            <p class="eyebrow">Dashboard activite</p>
+            <h2 class="section-title">{{ eventsComparisonTitle() }}</h2>
+            <p class="activity-dashboard-subtitle">Annee universitaire {{ dashboardPeriodLabel() }}</p>
+          </div>
+          <span class="activity-dashboard-year">Evenement</span>
+        </div>
+
+        @if (dashboardInsightsError()) {
+          <p class="activity-dashboard-note activity-dashboard-note--error">{{ dashboardInsightsError() }}</p>
+        } @else if (dashboardInsightsLoading()) {
+          <p class="activity-dashboard-note">Chargement du dashboard evenement...</p>
+        } @else {
+          <p class="activity-dashboard-note">{{ eventsComparisonNote() }}</p>
+        }
+
+        <div class="activity-dashboard-grid">
+          <app-chart-panel
+            title="Comparatif evenement"
+            [subtitle]="eventsComparisonSubtitle()"
+            type="bar"
+            [data]="eventsComparisonChartData()"
+            [height]="280"
+            [legend]="false"
+          ></app-chart-panel>
+
+          <app-chart-panel
+            title="Evolution annuelle evenement"
+            [subtitle]="eventsTrendSubtitle()"
+            type="line"
+            [data]="eventsTrendChartData()"
+            [height]="280"
+            [legend]="false"
+          ></app-chart-panel>
+        </div>
+      </section>
+    }
+
+    <section class="panel">
+      <p class="eyebrow">Filtres</p>
+      <div class="filter-grid">
+        <label class="field">
+          <span>Recherche</span>
+          <input
+            [value]="searchTerm()"
+            (input)="updateSearchTerm($any($event.target).value)"
+            placeholder="Titre, role, enseignant"
+          />
+        </label>
+        <label class="field">
+          <span>Type</span>
+          <select [value]="typeFilter()" (change)="updateTypeFilter($any($event.target).value)">
+            @for (type of eventTypeFilters; track type) {
+              <option [value]="type">{{ filterTypeLabel(type) }}</option>
+            }
+          </select>
+        </label>
+      </div>
+    </section>
+
+    <section class="panel">
+      <div class="history-header">
+        <div class="history-header-copy">
+          <p class="eyebrow">Historique</p>
+          <h2 class="section-title">Liste des evenements</h2>
+        </div>
+
+        @if (hasHistoryToggle()) {
+          <button
+            class="ghost-button icon-only-button history-toggle-button"
+            [class.is-expanded]="showFullHistory()"
+            type="button"
+            (click)="toggleHistoryVisibility()"
+            [title]="historyToggleLabel()"
+            [attr.aria-label]="historyToggleLabel()"
+          ></button>
+        }
+      </div>
+      <div class="table-wrapper">
+        <table class="data-table events-table">
+          <thead>
+            <tr>
+              <th scope="col" class="col-title">Titre</th>
+              <th scope="col" class="col-type">Type</th>
+              <th scope="col" class="col-date">Date</th>
+              <th scope="col" class="col-role">Role</th>
+              <th scope="col" class="col-teacher">Enseignant</th>
+              <th scope="col" class="col-points">Points</th>
+              <th scope="col" class="col-actions">Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (activity of displayedActivities(); track activity.id) {
+              <tr>
+                <td class="col-title">
+                  <strong>{{ activity.title }}</strong>
+                  <div class="table-meta">{{ activity.academicYear }}</div>
+                </td>
+                <td class="col-type">{{ typeLabel(activity.eventType) }}</td>
+                <td class="col-date">{{ activity.eventDate | date: 'dd/MM/yyyy' }}</td>
+                <td class="col-role">{{ roleLabel(activity.eventType, activity.organizationRole) }}</td>
+                <td class="col-teacher">{{ activity.teacherName }}</td>
+                <td class="col-points">{{ pointsForActivity(activity) }}</td>
+                <td class="action-cell col-actions">
+                  <div class="events-actions">
+                    <button
+                      class="link-button detail-link icon-only-button icon-view"
+                      type="button"
+                      (click)="selectActivity(activity)"
+                      title="Voir les details"
+                      aria-label="Voir les details"
+                    ></button>
+                    @if (canManage(activity)) {
+                      @if (canSubmit(activity)) {
+                        <button
+                          class="link-button approve-link icon-only-button icon-submit"
+                          type="button"
+                          (click)="submitActivity(activity)"
+                          title="Soumettre"
+                          aria-label="Soumettre"
+                        ></button>
+                      }
+                      <button
+                        class="link-button edit-link icon-only-button icon-edit"
+                        type="button"
+                        (click)="startEditing(activity)"
+                        title="Modifier"
+                        aria-label="Modifier"
+                      ></button>
+                      <button
+                        class="link-button danger-link icon-only-button icon-delete"
+                        type="button"
+                        (click)="deleteEvent(activity)"
+                        title="Supprimer"
+                        aria-label="Supprimer"
+                      ></button>
+                    }
+                  </div>
+                </td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    @if (selectedActivity(); as activity) {
+      <section #detailSection class="detail-layout single-panel">
+        <div class="panel detail-panel">
+          <div class="detail-header">
+            <div class="detail-header-copy">
+              <p class="eyebrow">Fiche detail</p>
+              <h2 class="section-title">
+                {{ editingActivityId() === activity.id ? "Modifier l'evenement" : activity.title }}
+              </h2>
+            </div>
+
+            @if (canManage(activity) && editingActivityId() !== activity.id) {
+              <button
+                class="ghost-button detail-edit-button icon-only-button icon-edit"
+                type="button"
+                (click)="startEditing(activity)"
+                title="Modifier"
+                aria-label="Modifier"
+              ></button>
+            }
+          </div>
+
+          @if (editingActivityId() === activity.id) {
+            <form class="form-grid" [formGroup]="editForm" (ngSubmit)="saveEdit()">
+              <label class="field">
+                <span>Type</span>
+                <select formControlName="eventType">
+                  @for (type of eventTypes; track type) {
+                    <option [value]="type">{{ typeLabel(type) }}</option>
+                  }
+                </select>
+              </label>
+              <label class="field">
+                <span>Date</span>
+                <input formControlName="eventDate" type="date" />
+              </label>
+              <label class="field full-width">
+                <span>Titre</span>
+                <input formControlName="title" />
+              </label>
+              @if (isScientificEventType(editForm.controls.eventType.value)) {
+                <label class="field">
+                  <span>Ponderation</span>
+                  <select formControlName="organizationRole">
+                    @for (role of scientificRoles; track role) {
+                      <option [value]="role">{{ roleOptionLabel(role) }}</option>
+                    }
+                  </select>
+                </label>
+              }
+              <label class="field">
+                <span>Annee universitaire</span>
+                <input formControlName="academicYear" />
+              </label>
+              <label class="field">
+                <span>Points attribues</span>
+                <input [value]="pointsPreview(editForm.controls.eventType.value, editForm.controls.organizationRole.value)" readonly />
+              </label>
+              <div class="detail-actions full-width">
+                <button class="primary-button" type="submit" [disabled]="saving()">
+                  {{ saving() ? 'Enregistrement...' : 'Enregistrer les modifications' }}
+                </button>
+                <button class="ghost-button" type="button" (click)="cancelEditing()">Annuler</button>
+              </div>
+            </form>
+          } @else {
+            <div class="detail-grid">
+              <div><span class="detail-label">Type</span><strong>{{ typeLabel(activity.eventType) }}</strong></div>
+              <div><span class="detail-label">Date</span><strong>{{ activity.eventDate | date: 'dd/MM/yyyy' }}</strong></div>
+              <div><span class="detail-label">Role</span><strong>{{ roleLabel(activity.eventType, activity.organizationRole) }}</strong></div>
+              <div><span class="detail-label">Statut</span><strong>{{ activity.status }}</strong></div>
+              <div><span class="detail-label">Enseignant</span><strong>{{ activity.teacherName }}</strong></div>
+              <div><span class="detail-label">Annee</span><strong>{{ activity.academicYear }}</strong></div>
+              <div><span class="detail-label">Points</span><strong>{{ pointsForActivity(activity) }}</strong></div>
+            </div>
+          }
+        </div>
+      </section>
+    }
+  }
+</div>

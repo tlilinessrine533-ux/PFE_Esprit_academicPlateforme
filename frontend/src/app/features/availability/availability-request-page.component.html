@@ -1,0 +1,322 @@
+<div class="page-shell">
+  <section class="panel page-header">
+    <div>
+      <p class="eyebrow">Disponibilite</p>
+      <h1 class="section-title">{{ pageTitle() }}</h1>
+      <p class="page-copy">{{ pageHint() }}</p>
+    </div>
+
+    <div class="page-header-actions">
+      <button
+        class="create-request-button"
+        type="button"
+        (click)="toggleRequestForm()"
+        [attr.aria-label]="requestFormToggleLabel()"
+        [title]="requestFormToggleLabel()"
+      >
+        <span aria-hidden="true">+</span>
+      </button>
+
+      <button class="ghost-button" type="button" (click)="loadRequests()" [disabled]="loading() || saving()">
+        {{ loading() ? 'Chargement...' : 'Actualiser' }}
+      </button>
+
+      <button
+        class="ghost-button icon-only-button icon-dashboard dashboard-toggle-button"
+        [class.is-active]="showAvailabilityDashboard()"
+        type="button"
+        (click)="toggleAvailabilityDashboard()"
+        [title]="showAvailabilityDashboard() ? 'Masquer Dashboard Disponibilite' : 'Afficher Dashboard Disponibilite'"
+        [attr.aria-label]="showAvailabilityDashboard() ? 'Masquer Dashboard Disponibilite' : 'Afficher Dashboard Disponibilite'"
+      ></button>
+    </div>
+  </section>
+
+  @if (errorMessage()) {
+    <div class="error-banner">{{ errorMessage() }}</div>
+  }
+
+  @if (successMessage()) {
+    <div class="success-banner">{{ successMessage() }}</div>
+  }
+
+  @if (showRequestForm()) {
+    <section class="panel request-form-panel">
+      @if (isLeavePage()) {
+        <p class="form-copy">La demande est envoyee directement pour traitement des que vous validez ce formulaire.</p>
+      }
+
+      @if (isLeavePage()) {
+        <form class="form-grid" [formGroup]="leaveForm" (ngSubmit)="submitRequest()">
+          <label class="field">
+            <span>Type de conge</span>
+            <select formControlName="leaveType">
+              @for (type of leaveTypes; track type) {
+                <option [value]="type">{{ type }}</option>
+              }
+            </select>
+          </label>
+
+          <label class="field">
+            <span>Departement</span>
+            <select formControlName="departmentId" [disabled]="departmentsLoading()">
+              <option value="">Selectionnez un departement</option>
+              @for (department of availableDepartments(); track department.id) {
+                <option [value]="department.id">{{ department.name }}</option>
+              }
+            </select>
+            @if (departmentsLoading()) {
+              <small class="field-help">Chargement des departements...</small>
+            }
+          </label>
+
+          <label class="field">
+            <span>Unite pedagogique / Parcours</span>
+            <input formControlName="pedagogicalUnit" placeholder="Exemple : Business Analytics" />
+          </label>
+
+          <label class="field">
+            <span>Annee universitaire</span>
+            <input formControlName="academicYear" />
+          </label>
+
+          <label class="field">
+            <span>Date de debut</span>
+            <input formControlName="startDate" type="date" />
+          </label>
+
+          <label class="field">
+            <span>Date de fin</span>
+            <input formControlName="endDate" type="date" />
+          </label>
+
+          <label class="field full-width">
+            <span>Motif</span>
+            <textarea formControlName="reason" rows="5" placeholder="Precisez le motif de votre conge."></textarea>
+          </label>
+
+          @if (isMedicalLeave()) {
+            <div class="field full-width upload-card">
+              <span>Certificat medical (image)</span>
+              <p class="field-help">
+                Obligatoire pour un conge maladie. Formats recommandes : PNG, JPG ou WEBP. Taille maximale : 5 Mo.
+              </p>
+              <input
+                #medicalCertificateInput
+                type="file"
+                accept="image/png,image/jpeg,image/webp"
+                (change)="onMedicalCertificateSelected($event)"
+              />
+
+              @if (medicalCertificateFileName()) {
+                <div class="file-preview">
+                  <div class="file-preview__copy">
+                    <strong>{{ medicalCertificateFileName() }}</strong>
+                    <small>Certificat medical pret a etre envoye avec la demande.</small>
+                  </div>
+                  <button class="ghost-button" type="button" (click)="removeMedicalCertificate()">Retirer</button>
+                </div>
+              }
+
+              @if (medicalCertificatePreview()) {
+                <img
+                  class="medical-certificate-preview"
+                  [src]="medicalCertificatePreview()"
+                  alt="Apercu du certificat medical"
+                />
+              }
+            </div>
+          }
+
+          <div class="detail-actions full-width">
+            <button class="ghost-button" type="button" (click)="cancelRequestForm()" [disabled]="saving()">
+              Annuler
+            </button>
+            <button class="primary-button" type="submit" [disabled]="saving() || departmentsLoading()">
+              {{ saving() ? 'Envoi...' : 'Envoyer la demande de conge' }}
+            </button>
+          </div>
+        </form>
+      } @else {
+        <form class="form-grid" [formGroup]="missionForm" (ngSubmit)="submitRequest()">
+          <div class="full-width mission-kind-field">
+            <div class="choice-group" role="radiogroup" aria-label="Type de demande de mission">
+              @for (kind of missionKinds; track kind) {
+                <label class="choice-chip">
+                  <input type="radio" formControlName="missionKind" [value]="kind" />
+                  <span>{{ missionKindLabel(kind) }}</span>
+                </label>
+              }
+            </div>
+          </div>
+
+          <label class="field full-width">
+            <span>Intitule de la mission / Nom de la conference</span>
+            <input formControlName="title" [placeholder]="missionTitlePlaceholder()" />
+          </label>
+
+          <label class="field">
+            <span>Annee universitaire</span>
+            <input formControlName="academicYear" />
+          </label>
+
+          <label class="field">
+            <span>Date de debut</span>
+            <input formControlName="startDate" type="date" />
+          </label>
+
+          <label class="field">
+            <span>Date de fin</span>
+            <input formControlName="endDate" type="date" />
+          </label>
+
+          <label class="field full-width">
+            <span>Motif de la mission / Participation a la conference</span>
+            <textarea
+              formControlName="reason"
+              rows="5"
+              [placeholder]="missionReasonPlaceholder()"
+            ></textarea>
+          </label>
+
+          <div class="detail-actions full-width">
+            <button class="ghost-button" type="button" (click)="cancelRequestForm()" [disabled]="saving()">
+              Annuler
+            </button>
+            <button class="primary-button" type="submit" [disabled]="saving()">
+              {{ saving() ? 'Envoi...' : 'Envoyer la demande de mission' }}
+            </button>
+          </div>
+        </form>
+      }
+    </section>
+  }
+
+  @if (showAvailabilityDashboard()) {
+    <section class="panel activity-dashboard-panel">
+      <div class="activity-dashboard-head">
+        <div>
+          <p class="eyebrow">Dashboard disponibilite</p>
+          <h2 class="section-title">{{ isLeavePage() ? 'Conges et absences' : 'Missions et deplacements' }}</h2>
+          <p class="activity-dashboard-subtitle">Vue KPI + tendances mensuelles pour pilotage rapide.</p>
+        </div>
+      </div>
+
+      <div class="metric-grid compact-metrics">
+        <article class="metric-card">
+          <span>Jours d'absence</span>
+          <strong>{{ totalAbsenceDays() }}</strong>
+        </article>
+        <article class="metric-card">
+          <span>Conges</span>
+          <strong>{{ leaveRequestsCount() }}</strong>
+        </article>
+        <article class="metric-card">
+          <span>Missions</span>
+          <strong>{{ missionRequestsCount() }}</strong>
+        </article>
+        <article class="metric-card">
+          <span>Taux de traitement</span>
+          <strong>{{ absenceRateLabel() }}</strong>
+        </article>
+      </div>
+
+      <div class="activity-dashboard-grid">
+        <app-chart-panel
+          title="Absences / demandes par mois"
+          subtitle="Bar chart mensuel pour identifier les pics."
+          type="bar"
+          [data]="availabilityByMonthChartData()"
+          [height]="280"
+          [legend]="false"
+        ></app-chart-panel>
+
+        <app-chart-panel
+          title="Conge vs mission"
+          subtitle="Repartition globale des demandes enseignant."
+          type="doughnut"
+          [data]="availabilityTypeChartData()"
+          [height]="280"
+        ></app-chart-panel>
+      </div>
+    </section>
+  }
+
+  <section class="panel">
+    <div class="history-header">
+      <div>
+        <p class="eyebrow">Historique recent</p>
+        <h2 class="section-title">{{ isLeavePage() ? 'Mes demandes de conge' : 'Mes demandes de mission' }}</h2>
+        @if (isLeavePage()) {
+          <div class="absence-kpi-list">
+            <span><strong>Total jours :</strong> {{ totalAbsenceDays() }}</span>
+            <span><strong>Jours valides :</strong> {{ validatedAbsenceDays() }}</span>
+            <span><strong>Jours en cours :</strong> {{ pendingAbsenceDays() }}</span>
+          </div>
+        }
+      </div>
+
+      @if (hasCollapsedRequests()) {
+        <button
+          class="history-toggle-button"
+          type="button"
+          (click)="toggleRequests()"
+          [attr.aria-label]="requestsToggleLabel()"
+        >
+          <span class="history-toggle-icon" [class.expanded]="showAllRequests()" aria-hidden="true"></span>
+        </button>
+      }
+    </div>
+
+    @if (loading()) {
+      <p class="empty-state">Chargement de vos demandes...</p>
+    } @else if (requests().length === 0) {
+      <p class="empty-state">Aucune demande enregistree pour le moment.</p>
+    } @else {
+      <div class="table-wrapper">
+        <table class="data-table availability-table">
+          <thead>
+            <tr>
+              <th>Type</th>
+              <th>Date</th>
+              <th>Statut</th>
+              <th>Motif</th>
+              <th>Details</th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (request of visibleRequests(); track request.id) {
+              <tr>
+                <td>
+                  <strong>{{ requestTitle(request) }}</strong>
+                  <div class="table-meta">{{ request.academicYear }}</div>
+                </td>
+                <td>
+                  {{ request.startDate | date: 'dd/MM/yyyy' }} - {{ request.endDate | date: 'dd/MM/yyyy' }}
+                </td>
+                <td>
+                  <span class="status-pill">{{ statusLabel(request.status) }}</span>
+                </td>
+                <td>{{ request.reason }}</td>
+                <td>
+                  @if (request.requestType === 'MISSION') {
+                    <div class="table-meta">{{ missionKindLabel(request.missionKind) }}</div>
+                  }
+                  @if (request.departmentName) {
+                    <div class="table-meta">Dep.: {{ request.departmentName }}</div>
+                  }
+                  @if (request.pedagogicalUnit) {
+                    <div class="table-meta">Unite: {{ request.pedagogicalUnit }}</div>
+                  }
+                  @if (request.requestType === 'CONGE') {
+                    <div class="table-meta">Jours: {{ request.absenceDays }}</div>
+                  }
+                </td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+    }
+  </section>
+</div>

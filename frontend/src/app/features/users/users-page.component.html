@@ -1,0 +1,889 @@
+<div class="page-shell">
+  <section class="panel page-header">
+    <div>
+      <p class="eyebrow">Administration</p>
+      <h1 class="section-title">{{ usersPageTitle() }}</h1>
+      <p class="section-copy">{{ usersPageDescription() }}</p>
+    </div>
+    <div class="page-header-actions">
+      @if (canManageUsers() && isUsersManagementView()) {
+        <button
+          class="primary-button icon-only-button icon-add"
+          type="button"
+          (click)="toggleCreateForm()"
+          [class.is-open]="showCreateForm()"
+          [title]="createFormToggleLabel()"
+          [attr.aria-label]="createFormToggleLabel()"
+        ></button>
+      }
+      <button class="ghost-button" type="button" (click)="loadData()" [disabled]="loading() || saving()">
+        {{ loading() ? 'Chargement...' : 'Actualiser' }}
+      </button>
+      <button
+        class="ghost-button icon-only-button icon-dashboard dashboard-toggle-button"
+        [class.is-active]="showUsersDashboard()"
+        type="button"
+        (click)="toggleUsersDashboard()"
+        [title]="usersDashboardToggleLabel()"
+        [attr.aria-label]="usersDashboardToggleLabel()"
+      ></button>
+    </div>
+  </section>
+
+  @if (errorMessage()) {
+    <div class="error-banner">{{ errorMessage() }}</div>
+  }
+
+  @if (successMessage()) {
+    <div class="success-banner">{{ successMessage() }}</div>
+  }
+
+  @if (isUsersManagementView()) {
+  <section class="panel">
+    <div class="history-header">
+      <div class="history-header-copy">
+        <p class="eyebrow">2. Utilisateurs et roles</p>
+        <h2 class="section-title">Supervision des comptes</h2>
+      </div>
+    </div>
+
+    <div class="metric-grid compact-metrics">
+      <article class="metric-card accent-card">
+        <span>Nombre total utilisateurs</span>
+        <strong>{{ totalUsersCount() }}</strong>
+      </article>
+      <article class="metric-card">
+        <span>Comptes actifs</span>
+        <strong>{{ totalActiveUsersCount() }}</strong>
+      </article>
+      <article class="metric-card">
+        <span>Comptes desactives</span>
+        <strong>{{ totalDisabledUsersCount() }}</strong>
+      </article>
+      <article class="metric-card">
+        <span>Nombre roles</span>
+        <strong>{{ totalRolesCount() }}</strong>
+      </article>
+    </div>
+
+    @if (showUsersDashboard()) {
+      <section class="users-dashboard-grid">
+        <app-chart-panel
+          title="Utilisateurs par role"
+          subtitle="Distribution par role systeme."
+          type="bar"
+          [data]="usersByRoleBarChartData()"
+          [height]="280"
+          [legend]="false"
+        ></app-chart-panel>
+
+        <app-chart-panel
+          title="Creation comptes dans le temps"
+          subtitle="Tendance mensuelle des creations."
+          type="line"
+          [data]="accountCreationTrendChartData()"
+          [height]="280"
+          [legend]="false"
+        ></app-chart-panel>
+      </section>
+    }
+  </section>
+
+  <section class="panel">
+    <div class="history-header">
+      <div class="history-header-copy">
+        <p class="eyebrow">3. Roles et permissions</p>
+        <h2 class="section-title">Controle des acces</h2>
+      </div>
+      @if (hasRolePermissionRowsToggle()) {
+        <button
+          class="ghost-button icon-only-button history-toggle-button"
+          [class.is-expanded]="showAllRolePermissionRows()"
+          type="button"
+          (click)="toggleRolePermissionRowsVisibility()"
+          [title]="rolePermissionRowsToggleLabel()"
+          [attr.aria-label]="rolePermissionRowsToggleLabel()"
+        ></button>
+      }
+    </div>
+
+    <div class="metric-grid compact-metrics">
+      <article class="metric-card">
+        <span>Nombre roles</span>
+        <strong>{{ totalRolesCount() }}</strong>
+      </article>
+      <article class="metric-card">
+        <span>Permissions actives</span>
+        <strong>{{ permissionsCount() }}</strong>
+      </article>
+      <article class="metric-card">
+        <span>Modifications permissions</span>
+        <strong>{{ permissionChangeCount() }}</strong>
+      </article>
+    </div>
+
+    @if (showUsersDashboard()) {
+      <section class="users-dashboard-grid">
+        <app-chart-panel
+          title="Permissions par role"
+          subtitle="Nombre de permissions fonctionnelles par role."
+          type="bar"
+          [data]="permissionsByRoleChartData()"
+          [height]="260"
+          [legend]="false"
+        ></app-chart-panel>
+        <app-chart-panel
+          title="Repartition des roles"
+          subtitle="Part de chaque role sur la plateforme."
+          type="doughnut"
+          [data]="roleDistributionChartData()"
+          [height]="260"
+        ></app-chart-panel>
+      </section>
+    }
+
+    <div class="table-wrapper">
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>Role</th>
+            <th>Permissions</th>
+            <th>Date modification</th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (row of displayedRolePermissionRows(); track row.role) {
+            <tr>
+              <td><strong>{{ roleLabel(row.role) }}</strong></td>
+              <td>{{ rolePermissionsText(row.role) }}</td>
+              <td>{{ row.updatedAt | date: 'dd/MM/yyyy HH:mm' }}</td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    </div>
+  </section>
+  }
+
+  @if (isUsersSupervisionView()) {
+  @if (isSupervisionSection('structure')) {
+  <section class="panel">
+    <div class="history-header">
+      <div class="history-header-copy">
+        <p class="eyebrow">4. Departements</p>
+        <h2 class="section-title">Structure organisationnelle</h2>
+      </div>
+      @if (hasDepartmentRowsToggle()) {
+        <button
+          class="ghost-button icon-only-button history-toggle-button"
+          [class.is-expanded]="showAllDepartmentRows()"
+          type="button"
+          (click)="toggleDepartmentRowsVisibility()"
+          [title]="departmentRowsToggleLabel()"
+          [attr.aria-label]="departmentRowsToggleLabel()"
+        ></button>
+      }
+    </div>
+
+    <div class="metric-grid compact-metrics">
+      <article class="metric-card">
+        <span>Nombre departements</span>
+        <strong>{{ availableDepartments().length }}</strong>
+      </article>
+      <article class="metric-card">
+        <span>Nombre enseignants total</span>
+        <strong>{{ users().filter((user) => user.role === 'ENSEIGNANT').length }}</strong>
+      </article>
+      <article class="metric-card">
+        <span>Moyenne par departement</span>
+        <strong>{{ averageUsersPerDepartment().toFixed(1) }}</strong>
+      </article>
+    </div>
+
+    @if (showUsersDashboard()) {
+      <section class="users-dashboard-grid">
+        <app-chart-panel
+          title="Enseignants par departement"
+          subtitle="Capacite enseignante par departement."
+          type="bar"
+          [data]="departmentTeachersChartData()"
+          [height]="280"
+          [legend]="false"
+        ></app-chart-panel>
+        <app-chart-panel
+          title="Repartition departements"
+          subtitle="Poids des departements en nombre de comptes."
+          type="doughnut"
+          [data]="departmentDistributionChartData()"
+          [height]="280"
+        ></app-chart-panel>
+      </section>
+    }
+
+    <div class="table-wrapper">
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>Departement</th>
+            <th>Code</th>
+            <th>Nombre enseignants</th>
+            <th>Responsable</th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (department of displayedDepartmentOverview(); track department.id) {
+            <tr>
+              <td><strong>{{ department.name }}</strong></td>
+              <td>{{ department.code || '-' }}</td>
+              <td>{{ department.totalTeachers }}</td>
+              <td>{{ department.managerName }}</td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    </div>
+  </section>
+  }
+
+  @if (isSupervisionSection('technique')) {
+  <section class="panel">
+    <div class="history-header">
+      <div class="history-header-copy">
+        <p class="eyebrow">5. Journaux systeme</p>
+        <h2 class="section-title">Supervision technique</h2>
+      </div>
+      @if (hasSystemLogRowsToggle()) {
+        <button
+          class="ghost-button icon-only-button history-toggle-button"
+          [class.is-expanded]="showAllSystemLogRows()"
+          type="button"
+          (click)="toggleSystemLogRowsVisibility()"
+          [title]="systemLogRowsToggleLabel()"
+          [attr.aria-label]="systemLogRowsToggleLabel()"
+        ></button>
+      }
+    </div>
+
+    <div class="metric-grid compact-metrics">
+      <article class="metric-card">
+        <span>Nombre actions systeme</span>
+        <strong>{{ systemActionCount() }}</strong>
+      </article>
+      <article class="metric-card">
+        <span>Nombre erreurs</span>
+        <strong>{{ systemErrorCount() }}</strong>
+      </article>
+      <article class="metric-card">
+        <span>Taux erreurs</span>
+        <strong>{{ systemErrorRateDisplay() }}</strong>
+      </article>
+    </div>
+
+    @if (showUsersDashboard()) {
+      <section class="users-dashboard-grid">
+        <app-chart-panel
+          title="Erreurs dans le temps"
+          subtitle="Evolution mensuelle des alertes en erreur."
+          type="line"
+          [data]="systemErrorsTrendChartData()"
+          [renderWhenZero]="true"
+          [height]="260"
+          [legend]="false"
+        ></app-chart-panel>
+        <app-chart-panel
+          title="Actions OK vs erreurs"
+          subtitle="Qualite globale des actions systeme."
+          type="doughnut"
+          [data]="systemStatusChartData()"
+          [height]="260"
+        ></app-chart-panel>
+      </section>
+    }
+
+    <div class="table-wrapper">
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>Date</th>
+            <th>Utilisateur</th>
+            <th>Action</th>
+            <th>Statut</th>
+            <th>Detail</th>
+          </tr>
+        </thead>
+        <tbody>
+          @if (displayedSystemLogs().length === 0) {
+            <tr>
+              <td colspan="5">Aucun journal systeme disponible pour le moment.</td>
+            </tr>
+          } @else {
+            @for (logEntry of displayedSystemLogs(); track logEntry.id) {
+              <tr>
+                <td>{{ logEntry.occurredAt | date: 'dd/MM/yyyy HH:mm' }}</td>
+                <td>{{ logEntry.actor }}</td>
+                <td>
+                  <strong>{{ logEntry.action }}</strong>
+                  <div class="table-meta">{{ systemLogCategoryLabel(logEntry.category) }}</div>
+                </td>
+                <td><span [class]="systemLogStatusClass(logEntry.status)">{{ logEntry.status }}</span></td>
+                <td>{{ logEntry.detail }}</td>
+              </tr>
+            }
+          }
+        </tbody>
+      </table>
+    </div>
+  </section>
+  }
+
+  @if (isSupervisionSection('connexions')) {
+  <section class="panel">
+    <div class="history-header">
+      <div class="history-header-copy">
+        <p class="eyebrow">6. Activite systeme</p>
+        <h2 class="section-title">Connexions estimees</h2>
+      </div>
+      @if (hasConnectionRowsToggle()) {
+        <button
+          class="ghost-button icon-only-button history-toggle-button"
+          [class.is-expanded]="showAllConnectionRows()"
+          type="button"
+          (click)="toggleConnectionRowsVisibility()"
+          [title]="connectionRowsToggleLabel()"
+          [attr.aria-label]="connectionRowsToggleLabel()"
+        ></button>
+      }
+    </div>
+
+    <div class="metric-grid compact-metrics">
+      <article class="metric-card">
+        <span>Nombre connexions</span>
+        <strong>{{ totalConnectionsCount() }}</strong>
+      </article>
+      <article class="metric-card">
+        <span>Moyenne connexions / jour</span>
+        <strong>{{ averageConnectionsPerDay().toFixed(1) }}</strong>
+      </article>
+      <article class="metric-card">
+        <span>Disponibilite plateforme</span>
+        <strong>{{ platformAvailabilityDisplay() }}</strong>
+      </article>
+    </div>
+
+    @if (showUsersDashboard()) {
+      <section class="users-dashboard-grid">
+        <app-chart-panel
+          title="Connexions dans le temps"
+          subtitle="Activite mensuelle des connexions estimees."
+          type="line"
+          [data]="connectionsTrendChartData()"
+          [height]="260"
+          [legend]="false"
+        ></app-chart-panel>
+        <app-chart-panel
+          title="Connexions par role"
+          subtitle="Volume des connexions estimees par role."
+          type="bar"
+          [data]="connectionsByRoleChartData()"
+          [height]="260"
+          [legend]="false"
+        ></app-chart-panel>
+      </section>
+    }
+
+    <div class="table-wrapper">
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>Utilisateur</th>
+            <th>Date connexion</th>
+            <th>IP</th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (entry of displayedConnections(); track entry.id) {
+            <tr>
+              <td><strong>{{ entry.userName }}</strong></td>
+              <td>{{ entry.connectedAt | date: 'dd/MM/yyyy HH:mm' }}</td>
+              <td>{{ entry.ipAddress }}</td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    </div>
+  </section>
+  }
+
+  @if (isSupervisionSection('bareme-primes')) {
+  <section class="panel">
+    <div class="history-header">
+      <div class="history-header-copy">
+        <p class="eyebrow">7. Configuration</p>
+        <h2 class="section-title">Barème et primes</h2>
+      </div>
+      @if (hasConfigurationRowsToggle()) {
+        <button
+          class="ghost-button icon-only-button history-toggle-button"
+          [class.is-expanded]="showAllConfigurationRows()"
+          type="button"
+          (click)="toggleConfigurationRowsVisibility()"
+          [title]="configurationRowsToggleLabel()"
+          [attr.aria-label]="configurationRowsToggleLabel()"
+        ></button>
+      }
+    </div>
+
+    <div class="metric-grid compact-metrics">
+      <article class="metric-card">
+        <span>Modifications bareme</span>
+        <strong>{{ permissionChangeCount() }}</strong>
+      </article>
+      <article class="metric-card">
+        <span>Modifications criteres prime</span>
+        <strong>{{ permissionChangeCount() }}</strong>
+      </article>
+    </div>
+
+    @if (showUsersDashboard()) {
+      <section class="users-dashboard-grid users-dashboard-grid--single">
+        <app-chart-panel
+          title="Modifications dans le temps"
+          subtitle="Suivi mensuel des changements de configuration."
+          type="line"
+          [data]="configurationTrendChartData()"
+          [height]="260"
+          [legend]="false"
+        ></app-chart-panel>
+      </section>
+    }
+
+    <div class="table-wrapper">
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>Type modification</th>
+            <th>Date</th>
+            <th>Auteur</th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (row of displayedConfigurationRows(); track row.role) {
+            <tr>
+              <td>Mise a jour permissions {{ roleLabel(row.role) }}</td>
+              <td>{{ row.updatedAt | date: 'dd/MM/yyyy HH:mm' }}</td>
+              <td>Super Admin</td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    </div>
+  </section>
+  }
+
+  @if (isSupervisionSection('problemes-systeme')) {
+  <section class="panel">
+    <div class="history-header">
+      <div class="history-header-copy">
+        <p class="eyebrow">8. Incidents administratifs</p>
+        <h2 class="section-title">Suivi des problemes systeme</h2>
+      </div>
+      @if (hasIncidentRowsToggle()) {
+        <button
+          class="ghost-button icon-only-button history-toggle-button"
+          [class.is-expanded]="showAllIncidentRows()"
+          type="button"
+          (click)="toggleIncidentRowsVisibility()"
+          [title]="incidentRowsToggleLabel()"
+          [attr.aria-label]="incidentRowsToggleLabel()"
+        ></button>
+      }
+    </div>
+
+    <div class="metric-grid compact-metrics">
+      <article class="metric-card">
+        <span>Nombre incidents</span>
+        <strong>{{ incidentEntries().length }}</strong>
+      </article>
+      <article class="metric-card">
+        <span>Incidents critiques</span>
+        <strong>{{ criticalIncidentCount() }}</strong>
+      </article>
+    </div>
+
+    @if (showUsersDashboard()) {
+      <section class="users-dashboard-grid users-dashboard-grid--single">
+        <app-chart-panel
+          title="Incidents par type"
+          subtitle="Distribution des incidents detectes."
+          type="bar"
+          [data]="incidentByTypeChartData()"
+          [height]="260"
+          [legend]="false"
+        ></app-chart-panel>
+      </section>
+    }
+
+    <div class="table-wrapper">
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>Type</th>
+            <th>Date</th>
+            <th>Statut</th>
+            <th>Detail</th>
+          </tr>
+        </thead>
+        <tbody>
+          @if (displayedIncidentRows().length === 0) {
+            <tr>
+              <td colspan="4">Aucun incident detecte.</td>
+            </tr>
+          } @else {
+            @for (incident of displayedIncidentRows(); track incident.id) {
+              <tr>
+                <td><strong>{{ incident.incidentType }}</strong></td>
+                <td>{{ incident.occurredAt | date: 'dd/MM/yyyy HH:mm' }}</td>
+                <td><span [class]="incidentStatusClass(incident.status)">{{ incident.status }}</span></td>
+                <td>{{ incident.detail }}</td>
+              </tr>
+            }
+          }
+        </tbody>
+      </table>
+    </div>
+  </section>
+  }
+  }
+
+  @if (isUsersManagementView()) {
+  @if (canManageUsers() && showCreateForm()) {
+    <section class="panel">
+      <div class="create-header">
+        <div class="create-header-copy">
+          <p class="eyebrow">Creation</p>
+          <h2 class="section-title">Creer un compte</h2>
+        </div>
+      </div>
+
+      <form class="form-grid" [formGroup]="createForm" (ngSubmit)="createUser()">
+        <label class="field">
+          <span>Prenom</span>
+          <input formControlName="firstName" autocomplete="given-name" />
+          @if (hasCreateFirstNameError()) {
+            <p class="field-help field-help--error">Le prenom est obligatoire.</p>
+          }
+        </label>
+
+        <label class="field">
+          <span>Nom</span>
+          <input formControlName="lastName" autocomplete="family-name" />
+          @if (hasCreateLastNameError()) {
+            <p class="field-help field-help--error">Le nom est obligatoire.</p>
+          }
+        </label>
+
+        <label class="field full-width">
+          <span>Email institutionnel</span>
+          <input formControlName="email" type="email" autocomplete="email" placeholder="prenom.nom@esprit.tn" />
+          @if (hasCreateEmailError()) {
+            <p class="field-help field-help--error">Veuillez utiliser une adresse institutionnelle esprit.tn valide.</p>
+          } @else {
+            <p class="field-help">Seules les adresses institutionnelles ESPRIT sont autorisees.</p>
+          }
+        </label>
+
+        <label class="field role-field">
+          <span>Role du compte</span>
+          <select formControlName="role">
+            @for (role of createRoleOptions(); track role.value) {
+              <option [value]="role.value">{{ role.label }}</option>
+            }
+          </select>
+        </label>
+
+        @if (isTeacherRoleSelected()) {
+          <label class="field role-field">
+            <span>Type d'enseignant</span>
+            <select formControlName="teacherType">
+              @for (type of teacherTypeOptions; track type.value) {
+                <option [value]="type.value">{{ type.label }}</option>
+              }
+            </select>
+          </label>
+        }
+
+        <div class="field department-field">
+          <span>Departement</span>
+          <select formControlName="departmentId">
+            <option value="">Selectionnez un departement</option>
+            @for (department of eligibleDepartments(); track department.id) {
+              <option [value]="department.id">{{ departmentOptionLabel(department) }}</option>
+            }
+          </select>
+
+          @if (selectedDepartmentHead(); as head) {
+            <p class="field-help">
+              Chef actif pour ce departement : {{ head.firstName }} {{ head.lastName }}.
+            </p>
+          }
+
+          @if (selectedDepartmentRoleWarning()) {
+            <p class="field-help field-help--error">{{ selectedDepartmentRoleWarning() }}</p>
+          }
+
+          @if (hasCreateDepartmentError()) {
+            <p class="field-help field-help--error">Veuillez selectionner un departement.</p>
+          }
+        </div>
+
+        <p class="field-help full-width role-description">{{ selectedRoleDescription() }}</p>
+
+        <label class="field">
+          <span>Mot de passe</span>
+          <input formControlName="password" type="password" autocomplete="new-password" />
+        </label>
+
+        <label class="field">
+          <span>Confirmer le mot de passe</span>
+          <input formControlName="confirmPassword" type="password" autocomplete="new-password" />
+          @if (hasCreateConfirmPasswordStrengthError()) {
+            <p class="field-help field-help--error">
+              La confirmation doit respecter la meme regle de securite que le mot de passe.
+            </p>
+          }
+        </label>
+
+        @if (hasCreatePasswordStrengthError()) {
+          <p class="field-help field-help--error full-width">
+            Le mot de passe doit contenir au minimum 8 caracteres et au moins 1 caractere special.
+          </p>
+        }
+
+        @if (hasCreatePasswordMismatch()) {
+          <p class="field-help field-help--error full-width">Les mots de passe ne correspondent pas.</p>
+        }
+
+        @if (createFormValidationMessage()) {
+          <p class="field-help field-help--error full-width form-feedback">
+            {{ createFormValidationMessage() }}
+          </p>
+        }
+
+        <label class="checkbox-field full-width">
+          <input formControlName="isActive" type="checkbox" />
+          <span>Compte actif des sa creation</span>
+        </label>
+
+        <div class="form-actions full-width">
+          <button class="primary-button" type="submit" [disabled]="saving()">
+            {{ saving() ? 'Creation...' : 'Creer le compte' }}
+          </button>
+          <button class="ghost-button" type="button" (click)="toggleCreateForm()" [disabled]="saving()">
+            Masquer
+          </button>
+        </div>
+      </form>
+    </section>
+  } @else if (!canManageUsers()) {
+    <section class="panel">
+      <p class="eyebrow">Information</p>
+      <p class="section-copy">
+        Vous pouvez consulter la liste des utilisateurs, mais la creation et la suppression sont reservees a
+        super-administrateur.
+      </p>
+    </section>
+  }
+
+  @if (editingUser(); as user) {
+    <section class="panel">
+      <div class="detail-header">
+        <div class="detail-header-copy">
+          <p class="eyebrow">Modification</p>
+          <h2 class="section-title">Modifier {{ user.firstName }} {{ user.lastName }}</h2>
+          <p class="section-copy">Mettez a jour les informations du compte selectionne.</p>
+        </div>
+        <button class="ghost-button" type="button" (click)="cancelEditUser()" [disabled]="saving()">Fermer</button>
+      </div>
+
+      <form class="form-grid" [formGroup]="updateForm" (ngSubmit)="updateUser()">
+        <label class="field">
+          <span>Prenom</span>
+          <input formControlName="firstName" autocomplete="given-name" />
+          @if (hasUpdateFirstNameError()) {
+            <p class="field-help field-help--error">Le prenom est obligatoire.</p>
+          }
+        </label>
+
+        <label class="field">
+          <span>Nom</span>
+          <input formControlName="lastName" autocomplete="family-name" />
+          @if (hasUpdateLastNameError()) {
+            <p class="field-help field-help--error">Le nom est obligatoire.</p>
+          }
+        </label>
+
+        <label class="field full-width">
+          <span>Email institutionnel</span>
+          <input formControlName="email" type="email" autocomplete="email" placeholder="prenom.nom@esprit.tn" />
+          @if (hasUpdateEmailError()) {
+            <p class="field-help field-help--error">Veuillez utiliser une adresse institutionnelle esprit.tn valide.</p>
+          } @else {
+            <p class="field-help">Seules les adresses institutionnelles ESPRIT sont autorisees.</p>
+          }
+        </label>
+
+        <label class="field role-field">
+          <span>Role du compte</span>
+          <select formControlName="role">
+            @for (role of createRoleOptions(); track role.value) {
+              <option [value]="role.value">{{ role.label }}</option>
+            }
+          </select>
+        </label>
+
+        @if (isUpdateTeacherRoleSelected()) {
+          <label class="field role-field">
+            <span>Type d'enseignant</span>
+            <select formControlName="teacherType">
+              @for (type of teacherTypeOptions; track type.value) {
+                <option [value]="type.value">{{ type.label }}</option>
+              }
+            </select>
+          </label>
+        }
+
+        <div class="field department-field">
+          <span>Departement</span>
+          <select formControlName="departmentId">
+            <option value="">Selectionnez un departement</option>
+            @for (department of updateEligibleDepartments(); track department.id) {
+              <option [value]="department.id">{{ departmentOptionLabel(department) }}</option>
+            }
+          </select>
+
+          @if (selectedUpdateDepartmentHead(); as head) {
+            <p class="field-help">
+              Chef actif pour ce departement : {{ head.firstName }} {{ head.lastName }}.
+            </p>
+          }
+
+          @if (selectedUpdateDepartmentRoleWarning()) {
+            <p class="field-help field-help--error">{{ selectedUpdateDepartmentRoleWarning() }}</p>
+          }
+
+          @if (hasUpdateDepartmentError()) {
+            <p class="field-help field-help--error">Veuillez selectionner un departement.</p>
+          }
+        </div>
+
+        <p class="field-help full-width role-description">{{ selectedUpdateRoleDescription() }}</p>
+
+        @if (updateFormValidationMessage()) {
+          <p class="field-help field-help--error full-width form-feedback">
+            {{ updateFormValidationMessage() }}
+          </p>
+        }
+
+        <label class="checkbox-field full-width">
+          <input formControlName="isActive" type="checkbox" />
+          <span>Compte actif</span>
+        </label>
+
+        <div class="form-actions full-width">
+          <button class="primary-button" type="submit" [disabled]="saving()">
+            {{ saving() ? 'Mise a jour...' : 'Enregistrer les modifications' }}
+          </button>
+          <button class="ghost-button" type="button" (click)="cancelEditUser()" [disabled]="saving()">Annuler</button>
+        </div>
+      </form>
+    </section>
+  }
+
+  <section class="panel">
+    <div class="history-header">
+      <div class="history-header-copy">
+        <p class="eyebrow">Liste</p>
+        <h2 class="section-title">Utilisateurs existants</h2>
+      </div>
+      @if (hasUsersRowsToggle()) {
+        <button
+          class="ghost-button icon-only-button history-toggle-button"
+          [class.is-expanded]="showAllUsersRows()"
+          type="button"
+          (click)="toggleUsersRowsVisibility()"
+          [title]="usersRowsToggleLabel()"
+          [attr.aria-label]="usersRowsToggleLabel()"
+        ></button>
+      }
+    </div>
+
+    <div class="table-wrapper">
+      <table class="data-table users-table">
+        <thead>
+          <tr>
+            <th>Nom complet</th>
+            <th>E-mail</th>
+            <th>Role</th>
+            <th>Type enseignant</th>
+            <th>Departement</th>
+            <th>Statut</th>
+            <th>Derniere connexion</th>
+            <th class="col-actions">Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (user of displayedUsers(); track user.id) {
+            <tr>
+              <td>
+                <strong>{{ user.firstName }} {{ user.lastName }}</strong>
+                <div class="table-meta">ID #{{ user.id }}</div>
+              </td>
+              <td>{{ user.email }}</td>
+              <td>{{ roleLabel(user.role) }}</td>
+              <td>{{ teacherTypeLabel(user.teacherType) }}</td>
+              <td>{{ user.departmentName || 'Aucun' }}</td>
+              <td>{{ user.isActive ? 'Actif' : 'Inactif' }}</td>
+              <td>{{ user.updatedAt | date: 'dd/MM/yyyy HH:mm' }}</td>
+              <td class="action-cell col-actions">
+                @if (canEditUser(user)) {
+                  <div class="users-action-stack">
+                    <button
+                      class="link-button edit-link icon-only-button icon-edit"
+                      [class.is-editing]="editingUserId() === user.id"
+                      type="button"
+                      (click)="startEditUser(user)"
+                      [title]="editingUserId() === user.id ? 'Edition en cours' : 'Modifier'"
+                      [attr.aria-label]="editingUserId() === user.id ? 'Edition en cours' : 'Modifier'"
+                      [disabled]="saving()"
+                    ></button>
+                    <button
+                      class="link-button approve-link icon-only-button icon-submit"
+                      type="button"
+                      (click)="toggleUserActivation(user)"
+                      [title]="user.isActive ? 'Desactiver le compte' : 'Reactiver le compte'"
+                      [attr.aria-label]="user.isActive ? 'Desactiver le compte' : 'Reactiver le compte'"
+                      [disabled]="saving()"
+                    ></button>
+                    <button
+                      class="link-button danger-link icon-only-button icon-delete"
+                      type="button"
+                      (click)="deleteUser(user)"
+                      title="Supprimer"
+                      aria-label="Supprimer"
+                      [disabled]="saving()"
+                    ></button>
+                  </div>
+                } @else if (user.role === 'SUPER_ADMIN') {
+                  <span class="table-meta">Compte protege</span>
+                } @else {
+                  <span class="table-meta">Lecture seule</span>
+                }
+              </td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    </div>
+  </section>
+  }
+</div>

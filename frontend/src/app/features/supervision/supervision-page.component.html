@@ -1,0 +1,531 @@
+<div class="page-shell">
+  <section class="panel page-header">
+    <div>
+      <p class="eyebrow">Encadrement</p>
+      <h1 class="section-title">{{ isCreatePage ? 'Ajouter un encadrement' : 'Suivi des PFE et encadrements' }}</h1>
+    </div>
+
+    <div class="page-header-actions">
+      @if (isCreatePage) {
+        <button class="ghost-button" type="button" (click)="goToListPage()">Retour a la liste</button>
+      } @else {
+        @if (canCreate()) {
+          <button
+            class="primary-button icon-only-button icon-add"
+            type="button"
+            (click)="goToCreatePage()"
+            title="Ajouter un encadrement"
+            aria-label="Ajouter un encadrement"
+          ></button>
+        }
+        <button class="ghost-button" type="button" (click)="loadData()" [disabled]="loading()">
+          {{ loading() ? 'Chargement...' : 'Actualiser' }}
+        </button>
+        <button
+          class="ghost-button icon-only-button icon-dashboard dashboard-toggle-button"
+          [class.is-active]="showActivityDashboard()"
+          type="button"
+          (click)="toggleActivityDashboard()"
+          [title]="showActivityDashboard() ? 'Masquer Dashboard Encadrement' : 'Afficher Dashboard Encadrement'"
+          [attr.aria-label]="showActivityDashboard() ? 'Masquer Dashboard Encadrement' : 'Afficher Dashboard Encadrement'"
+        ></button>
+      }
+    </div>
+  </section>
+
+  @if (errorMessage()) {
+    <div class="error-banner">{{ errorMessage() }}</div>
+  }
+
+  @if (successMessage()) {
+    <div class="success-banner">{{ successMessage() }}</div>
+  }
+
+  @if (isCreatePage) {
+    <section class="panel">
+      <p class="eyebrow">Nouveau dossier</p>
+      <h2 class="section-title">Ajouter un encadrement</h2>
+
+      <form class="form-grid" [formGroup]="createForm" (ngSubmit)="createSupervision()">
+        <label class="field">
+          <span>Type</span>
+          <select formControlName="supervisionType">
+            @for (type of supervisionTypes; track type) {
+              <option [value]="type">{{ supervisionTypeLabel(type) }}</option>
+            }
+          </select>
+        </label>
+
+        @if (isPfeListType(createForm.controls.supervisionType.value)) {
+          <label class="field">
+            <span>Role PFE</span>
+            <select formControlName="pfeRole">
+              @for (role of pfeRoles; track role) {
+                <option [value]="role">{{ pfeRoleLabel(role) }}</option>
+              }
+            </select>
+          </label>
+        }
+
+        <label class="field">
+          <span>Statut</span>
+          <select formControlName="supervisionStatus">
+            @for (status of supervisionStatuses; track status) {
+              <option [value]="status">{{ supervisionStatusLabel(status) }}</option>
+            }
+          </select>
+        </label>
+
+        <label class="field">
+          <span>Niveau</span>
+          <select formControlName="studentProgram">
+            @for (level of levelOptions; track level) {
+              <option [value]="level">{{ level }}</option>
+            }
+          </select>
+        </label>
+
+        <label class="field">
+          <span>Etudiant</span>
+          <input formControlName="studentName" />
+        </label>
+
+        <label class="field full-width">
+          <span>Titre du sujet</span>
+          <input formControlName="subjectTitle" />
+        </label>
+
+        @if (requiresQuantityInput(createForm.controls.supervisionType.value)) {
+          <label class="field">
+            <span>{{ quantityLabel(createForm.controls.supervisionType.value) }}</span>
+            <input
+              formControlName="quantityValue"
+              type="number"
+              [attr.min]="isSupportType(createForm.controls.supervisionType.value) ? 0.5 : 4"
+              [attr.step]="isSupportType(createForm.controls.supervisionType.value) ? 0.5 : 1"
+            />
+            <small class="field-hint">{{ quantityHint(createForm.controls.supervisionType.value) }}</small>
+          </label>
+        }
+
+        <label class="field">
+          <span>Points attribues</span>
+          <input
+            [value]="pointsPreview(createForm.controls.supervisionType.value, createForm.controls.pfeRole.value, createForm.controls.quantityValue.value)"
+            type="number"
+            readonly
+          />
+        </label>
+
+        <label class="field">
+          <span>Annee universitaire</span>
+          <input formControlName="academicYear" />
+        </label>
+
+        <div class="detail-actions full-width">
+          <button class="primary-button" type="submit" [disabled]="saving()">
+            {{ saving() ? 'Enregistrement...' : "Enregistrer l'encadrement" }}
+          </button>
+          <button class="ghost-button" type="button" (click)="goToListPage()">Annuler</button>
+        </div>
+      </form>
+    </section>
+  } @else {
+    @if (summary(); as summaryValue) {
+      <section class="panel">
+        <p class="eyebrow">Resume</p>
+        <div class="metric-grid">
+          <article class="metric-card accent-card">
+            <span>Total encadrements</span>
+            <strong>{{ summaryValue.totalSupervisions }}</strong>
+          </article>
+          <article class="metric-card">
+            <span>Total points</span>
+            <strong>{{ summaryValue.totalPoints | number: '1.0-2' }}</strong>
+          </article>
+          <article class="metric-card">
+            <span>Total PFE</span>
+            <strong>{{ summaryValue.totalPfe }}</strong>
+          </article>
+          <article class="metric-card">
+            <span>Soutenus</span>
+            <strong>{{ summaryValue.totalSupported }}</strong>
+          </article>
+        </div>
+      </section>
+    }
+
+    @if (showActivityDashboard()) {
+      <section class="panel activity-dashboard-panel">
+        <div class="activity-dashboard-head">
+          <div>
+            <p class="eyebrow">Dashboard activite</p>
+            <h2 class="section-title">Equilibre et comparaison des encadrements</h2>
+            <p class="activity-dashboard-subtitle">Annee universitaire {{ dashboardPeriodLabel() }}</p>
+          </div>
+          <span class="activity-dashboard-year">Encadrement</span>
+        </div>
+
+        @if (dashboardInsightsError()) {
+          <p class="activity-dashboard-note activity-dashboard-note--error">{{ dashboardInsightsError() }}</p>
+        } @else if (dashboardInsightsLoading()) {
+          <p class="activity-dashboard-note">Chargement du dashboard d'encadrement...</p>
+        } @else {
+          <p class="activity-dashboard-note" [class.activity-dashboard-note--warning]="supervisionBalanceGap() > 0">
+            {{ supervisionDashboardNote() }}
+          </p>
+        }
+
+        <div class="activity-dashboard-grid">
+          <app-chart-panel
+            title="Spread d'equilibre academique / jury"
+            subtitle="Les deux categories doivent etre au meme niveau."
+            type="bar"
+            [data]="supervisionBalanceChartData()"
+            [height]="280"
+            [legend]="false"
+          ></app-chart-panel>
+
+          <app-chart-panel
+            title="Repartition PFE / Seminaire / PI / APP0 / Cours de soutien"
+            subtitle="Vue des types declares sur la periode active."
+            type="doughnut"
+            [data]="supervisionTypeDistributionChartData()"
+            [height]="280"
+          ></app-chart-panel>
+
+          <app-chart-panel
+            title="Evolution historique encadrement"
+            [subtitle]="supervisionTrendSubtitle()"
+            type="line"
+            [data]="supervisionTrendChartData()"
+            [height]="280"
+            [legend]="false"
+          ></app-chart-panel>
+        </div>
+      </section>
+    }
+
+    <section class="panel">
+      <p class="eyebrow">Filtres</p>
+      <div class="filter-grid">
+        <label class="field">
+          <span>Recherche</span>
+          <input
+            [value]="searchTerm()"
+            (input)="updateSearchTerm($any($event.target).value)"
+            placeholder="Etudiant, sujet, niveau, enseignant"
+          />
+        </label>
+
+        <label class="field">
+          <span>Type</span>
+          <select [value]="typeFilter()" (change)="updateTypeFilter($any($event.target).value)">
+            @for (type of supervisionTypeFilters; track type) {
+              <option [value]="type">{{ supervisionTypeLabel(type) }}</option>
+            }
+          </select>
+        </label>
+
+        <label class="field">
+          <span>Statut</span>
+          <select [value]="supervisionStatusFilter()" (change)="updateStatusFilter($any($event.target).value)">
+            @for (status of supervisionStatusFilters; track status) {
+              <option [value]="status">{{ supervisionStatusLabel(status) }}</option>
+            }
+          </select>
+        </label>
+      </div>
+
+      <div class="metric-grid compact-metrics">
+        <article class="metric-card">
+          <span>Resultats visibles</span>
+          <strong>{{ displayedActivities().length }}</strong>
+        </article>
+        <article class="metric-card">
+          <span>PFE visibles</span>
+          <strong>{{ visiblePfeCount() }}</strong>
+        </article>
+        <article class="metric-card">
+          <span>Points visibles</span>
+          <strong>{{ visiblePoints() | number: '1.0-2' }}</strong>
+        </article>
+      </div>
+    </section>
+
+    <section class="panel">
+      <div class="history-header">
+        <div class="history-header-copy">
+          <p class="eyebrow">Historique</p>
+          <h2 class="section-title">Liste des encadrements</h2>
+        </div>
+
+        @if (hasHistoryToggle()) {
+          <button
+            class="ghost-button icon-only-button history-toggle-button"
+            [class.is-expanded]="showFullHistory()"
+            type="button"
+            (click)="toggleHistoryVisibility()"
+            [title]="historyToggleLabel()"
+            [attr.aria-label]="historyToggleLabel()"
+          ></button>
+        }
+      </div>
+
+      <div class="table-wrapper">
+        <table class="data-table supervision-table">
+          <thead>
+            <tr>
+              <th scope="col" class="col-student">Etudiant</th>
+              <th scope="col" class="col-type">Type</th>
+              <th scope="col" class="col-subject">Sujet</th>
+              <th scope="col" class="col-status">Suivi</th>
+              <th scope="col" class="col-role">Points</th>
+              <th scope="col" class="col-teacher">Enseignant</th>
+              <th scope="col" class="col-actions">Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (activity of displayedActivities(); track activity.id) {
+              <tr class="supervision-row" [class.is-selected]="selectedActivity()?.id === activity.id">
+                <td class="col-student">
+                  <strong class="table-title">{{ activity.studentName }}</strong>
+                  <div class="table-meta">{{ activity.studentProgram }}</div>
+                </td>
+                <td class="col-type">
+                  <span class="info-pill type-pill">{{ supervisionTypeLabel(activity.supervisionType) }}</span>
+                  @if (isPfeType(activity.supervisionType)) {
+                    <div class="table-meta">{{ pfeRoleLabel(pfeRoleForActivity(activity)) }}</div>
+                  }
+                  <div class="table-meta">{{ activity.academicYear }}</div>
+                </td>
+                <td class="col-subject">
+                  <strong class="table-title subject-title">{{ activity.subjectTitle }}</strong>
+                </td>
+                <td class="col-status">
+                  <span
+                    class="info-pill status-pill"
+                    [class.is-supported]="activity.supervisionStatus === 'SOUTENU'"
+                    [class.is-progress]="activity.supervisionStatus === 'EN_COURS'"
+                  >
+                    {{ supervisionStatusLabel(activity.supervisionStatus) }}
+                  </span>
+                  <div class="table-meta">
+                    <span
+                      class="workflow-pill"
+                      [class.tone-approved]="workflowStatusTone(activity.status) === 'approved'"
+                      [class.tone-pending]="workflowStatusTone(activity.status) === 'pending'"
+                      [class.tone-warning]="workflowStatusTone(activity.status) === 'warning'"
+                      [class.tone-rejected]="workflowStatusTone(activity.status) === 'rejected'"
+                      [class.tone-draft]="workflowStatusTone(activity.status) === 'draft'"
+                    >
+                      {{ workflowStatusLabel(activity.status) }}
+                    </span>
+                  </div>
+                </td>
+                <td class="col-role">
+                  <span class="info-pill points-pill">{{ pointsForActivity(activity) | number: '1.0-2' }} pts</span>
+                  <div class="table-meta">{{ quantityLine(activity) }}</div>
+                </td>
+                <td class="col-teacher">
+                  <strong class="table-title teacher-name">{{ activity.teacherName }}</strong>
+                  <div class="table-meta">Annee {{ activity.academicYear }}</div>
+                </td>
+                <td class="action-cell col-actions">
+                  <div class="supervision-actions">
+                    <button
+                      class="link-button detail-link icon-only-button icon-view"
+                      type="button"
+                      (click)="selectActivity(activity)"
+                      [title]="selectedActivity()?.id === activity.id ? 'Masquer les details' : 'Voir les details'"
+                      [attr.aria-label]="selectedActivity()?.id === activity.id ? 'Masquer les details' : 'Voir les details'"
+                    ></button>
+                    @if (canManage(activity)) {
+                      @if (canSubmit(activity)) {
+                        <button
+                          class="link-button approve-link icon-only-button icon-submit"
+                          type="button"
+                          (click)="submitActivity(activity)"
+                          title="Soumettre"
+                          aria-label="Soumettre"
+                        ></button>
+                      }
+                      <button
+                        class="link-button edit-link icon-only-button icon-edit"
+                        type="button"
+                        (click)="startEditing(activity)"
+                        title="Modifier"
+                        aria-label="Modifier"
+                      ></button>
+                      <button
+                        class="link-button danger-link icon-only-button icon-delete"
+                        type="button"
+                        (click)="deleteSupervision(activity)"
+                        title="Supprimer"
+                        aria-label="Supprimer"
+                      ></button>
+                    }
+                  </div>
+                </td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    @if (selectedActivity(); as activity) {
+      <section #detailSection class="detail-layout single-panel">
+        <div class="panel detail-panel">
+          <div class="detail-header">
+            <div class="detail-header-copy">
+              <p class="eyebrow">Fiche detail</p>
+              <h2 class="section-title">
+                {{ editingActivityId() === activity.id ? "Modifier l'encadrement" : activity.studentName }}
+              </h2>
+            </div>
+
+            @if (canManage(activity) && editingActivityId() !== activity.id) {
+              <button
+                class="ghost-button detail-edit-button icon-only-button icon-edit"
+                type="button"
+                (click)="startEditing(activity)"
+                title="Modifier"
+                aria-label="Modifier"
+              ></button>
+            }
+          </div>
+
+          @if (editingActivityId() === activity.id) {
+            <form class="form-grid" [formGroup]="editForm" (ngSubmit)="saveEdit()">
+              <label class="field">
+                <span>Type</span>
+                <select formControlName="supervisionType">
+                  @for (type of supervisionTypes; track type) {
+                    <option [value]="type">{{ supervisionTypeLabel(type) }}</option>
+                  }
+                </select>
+              </label>
+
+              @if (isPfeListType(editForm.controls.supervisionType.value)) {
+                <label class="field">
+                  <span>Role PFE</span>
+                  <select formControlName="pfeRole">
+                    @for (role of pfeRoles; track role) {
+                      <option [value]="role">{{ pfeRoleLabel(role) }}</option>
+                    }
+                  </select>
+                </label>
+              }
+
+              <label class="field">
+                <span>Statut</span>
+                <select formControlName="supervisionStatus">
+                  @for (status of supervisionStatuses; track status) {
+                    <option [value]="status">{{ supervisionStatusLabel(status) }}</option>
+                  }
+                </select>
+              </label>
+
+              <label class="field">
+                <span>Niveau</span>
+                <select formControlName="studentProgram">
+                  @for (level of levelOptions; track level) {
+                    <option [value]="level">{{ level }}</option>
+                  }
+                </select>
+              </label>
+
+              <label class="field">
+                <span>Etudiant</span>
+                <input formControlName="studentName" />
+              </label>
+
+              <label class="field full-width">
+                <span>Titre du sujet</span>
+                <input formControlName="subjectTitle" />
+              </label>
+
+              @if (requiresQuantityInput(editForm.controls.supervisionType.value)) {
+                <label class="field">
+                  <span>{{ quantityLabel(editForm.controls.supervisionType.value) }}</span>
+                  <input
+                    formControlName="quantityValue"
+                    type="number"
+                    [attr.min]="isSupportType(editForm.controls.supervisionType.value) ? 0.5 : 4"
+                    [attr.step]="isSupportType(editForm.controls.supervisionType.value) ? 0.5 : 1"
+                  />
+                  <small class="field-hint">{{ quantityHint(editForm.controls.supervisionType.value) }}</small>
+                </label>
+              }
+
+              <label class="field">
+                <span>Points attribues</span>
+                <input
+                  [value]="pointsPreview(editForm.controls.supervisionType.value, editForm.controls.pfeRole.value, editForm.controls.quantityValue.value)"
+                  type="number"
+                  readonly
+                />
+              </label>
+
+              <label class="field">
+                <span>Annee universitaire</span>
+                <input formControlName="academicYear" />
+              </label>
+
+              <div class="detail-actions full-width">
+                <button class="primary-button" type="submit" [disabled]="saving()">
+                  {{ saving() ? 'Enregistrement...' : 'Enregistrer les modifications' }}
+                </button>
+                <button class="ghost-button" type="button" (click)="cancelEditing()">Annuler</button>
+              </div>
+            </form>
+          } @else {
+            <div class="detail-grid">
+              <div>
+                <span class="detail-label">Type</span>
+                <strong>{{ supervisionTypeLabel(activity.supervisionType) }}</strong>
+              </div>
+              @if (isPfeType(activity.supervisionType)) {
+                <div>
+                  <span class="detail-label">Role PFE</span>
+                  <strong>{{ pfeRoleLabel(pfeRoleForActivity(activity)) }}</strong>
+                </div>
+              }
+              <div>
+                <span class="detail-label">Statut</span>
+                <strong>{{ supervisionStatusLabel(activity.supervisionStatus) }}</strong>
+              </div>
+              <div>
+                <span class="detail-label">Niveau</span>
+                <strong>{{ activity.studentProgram }}</strong>
+              </div>
+              <div>
+                <span class="detail-label">Points</span>
+                <strong>{{ pointsForActivity(activity) | number: '1.0-2' }}</strong>
+              </div>
+              @if (requiresQuantityInput(activity.supervisionType)) {
+                <div>
+                  <span class="detail-label">{{ quantityLabel(activity.supervisionType) }}</span>
+                  <strong>{{ quantityLine(activity) }}</strong>
+                </div>
+              }
+              <div class="full-width">
+                <span class="detail-label">Sujet</span>
+                <strong>{{ activity.subjectTitle }}</strong>
+              </div>
+              <div>
+                <span class="detail-label">Enseignant</span>
+                <strong>{{ activity.teacherName }}</strong>
+              </div>
+              <div>
+                <span class="detail-label">Annee</span>
+                <strong>{{ activity.academicYear }}</strong>
+              </div>
+            </div>
+          }
+        </div>
+      </section>
+    }
+  }
+</div>

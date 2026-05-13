@@ -1,0 +1,136 @@
+<div class="page-shell">
+  <section class="panel page-header">
+    <div>
+      <p class="eyebrow">Absences</p>
+      <h1 class="section-title">Suivi des jours d'absence</h1>
+      <p class="page-copy">Vue {{ roleLabel() }} des absences enseignant(es) sur la periode academique.</p>
+    </div>
+
+    <form class="period-form" [formGroup]="periodForm">
+      <label class="field">
+        <span>Annee universitaire</span>
+        <input formControlName="periodLabel" />
+      </label>
+      <button class="ghost-button" type="button" (click)="loadAbsences()" [disabled]="loading()">
+        {{ loading() ? 'Chargement...' : 'Actualiser' }}
+      </button>
+      <button
+        class="ghost-button icon-only-button icon-dashboard dashboard-toggle-button"
+        [class.is-active]="showAbsenceDashboard()"
+        type="button"
+        (click)="toggleAbsenceDashboard()"
+        [title]="showAbsenceDashboard() ? 'Masquer Dashboard Absences' : 'Afficher Dashboard Absences'"
+        [attr.aria-label]="showAbsenceDashboard() ? 'Masquer Dashboard Absences' : 'Afficher Dashboard Absences'"
+      ></button>
+    </form>
+  </section>
+
+  @if (errorMessage()) {
+    <div class="error-banner">{{ errorMessage() }}</div>
+  }
+
+  <section class="panel">
+    <div class="section-header">
+      <div class="kpi-list">
+        <span><strong>Jours total :</strong> {{ totalAbsenceDays() }}</span>
+        <span><strong>Jours valides :</strong> {{ totalValidatedAbsenceDays() }}</span>
+        <span><strong>Jours en attente :</strong> {{ totalPendingAbsenceDays() }}</span>
+        <span><strong>Jours rejetes :</strong> {{ totalRejectedAbsenceDays() }}</span>
+      </div>
+      <label class="field search-field">
+        <span>Recherche</span>
+        <input (input)="updateSearchTerm($any($event.target).value)" placeholder="Enseignant ou departement..." />
+      </label>
+    </div>
+
+    @if (showAbsenceDashboard()) {
+      <div class="metric-grid compact-metrics">
+        <article class="metric-card">
+          <span>Total enseignants visibles</span>
+          <strong>{{ filteredAbsences().length }}</strong>
+        </article>
+        <article class="metric-card">
+          <span>Moyenne jours / enseignant</span>
+          <strong>
+            {{
+              filteredAbsences().length > 0
+                ? (totalAbsenceDays() / filteredAbsences().length).toFixed(1)
+                : '0.0'
+            }}
+          </strong>
+        </article>
+        <article class="metric-card">
+          <span>Taux validation absences</span>
+          <strong>
+            {{
+              totalAbsenceDays() > 0
+                ? ((totalValidatedAbsenceDays() / totalAbsenceDays()) * 100).toFixed(1)
+                : '0.0'
+            }}%
+          </strong>
+        </article>
+      </div>
+
+      <div class="absences-dashboard-grid">
+        <app-chart-panel
+          title="Repartition des absences"
+          subtitle="Pie chart par statut: valide, en attente, rejete."
+          type="pie"
+          [data]="absenceStatusPieChartData()"
+          [height]="280"
+        ></app-chart-panel>
+        <app-chart-panel
+          title="Top enseignants par absences"
+          subtitle="Volume de jours d'absence sur la periode active."
+          type="bar"
+          [data]="absenceByTeacherChartData()"
+          [height]="280"
+          [legend]="false"
+        ></app-chart-panel>
+        <app-chart-panel
+          title="Absences par departement"
+          subtitle="Comparatif departemental sur les donnees visibles."
+          type="bar"
+          [data]="absenceByDepartmentChartData()"
+          [height]="280"
+          [legend]="false"
+        ></app-chart-panel>
+      </div>
+    }
+
+    @if (loading()) {
+      <p class="empty-state">Chargement du suivi des absences...</p>
+    } @else if (filteredAbsences().length === 0) {
+      <p class="empty-state">Aucune absence disponible sur la periode selectionnee.</p>
+    } @else {
+      <div class="table-scroll">
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>Enseignant</th>
+              <th>Departement</th>
+              <th>Demandes</th>
+              <th>Jours total</th>
+              <th>Jours valides</th>
+              <th>Jours en attente</th>
+              <th>Jours rejetes</th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (item of filteredAbsences(); track item.teacherId) {
+              <tr>
+                <td>{{ item.teacherName }}</td>
+                <td>{{ item.departmentName ?? '-' }}</td>
+                <td>{{ item.totalRequests }}</td>
+                <td>{{ item.totalAbsenceDays }}</td>
+                <td>{{ item.validatedAbsenceDays }}</td>
+                <td>{{ item.pendingAbsenceDays }}</td>
+                <td>{{ item.rejectedAbsenceDays }}</td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+    }
+  </section>
+</div>

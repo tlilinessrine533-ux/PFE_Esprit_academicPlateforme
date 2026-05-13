@@ -1,0 +1,449 @@
+<div class="page-shell">
+  <section class="panel profile-hero">
+    <div>
+      <p class="eyebrow">Profil utilisateur</p>
+      <h1 class="section-title">{{ user()?.firstName }} {{ user()?.lastName }}</h1>
+      <div class="hero-badges">
+        <span class="hero-badge">{{ role() }}</span>
+        @if (user()?.departmentName) {
+          <span class="hero-meta">{{ user()?.departmentName }}</span>
+        }
+      </div>
+    </div>
+
+    <button
+      class="ghost-button"
+      type="button"
+      (click)="loadProfilePage()"
+      [disabled]="loading() || saving() || twoFactorBusy() || faceRecognitionBusy()"
+    >
+      {{ loading() ? 'Chargement...' : 'Actualiser le profil' }}
+    </button>
+  </section>
+
+  @if (errorMessage()) {
+    <div class="error-banner">{{ errorMessage() }}</div>
+  }
+
+  @if (successMessage()) {
+    <div class="success-banner">{{ successMessage() }}</div>
+  }
+
+  @if (isTeacher()) {
+    <section class="panel responsibilities-panel">
+      <div class="responsibilities-header">
+        <div>
+          <p class="eyebrow">Responsabilites</p>
+          <h2 class="section-title">Mes responsabilites academiques</h2>
+          <p class="security-copy">
+            Vos responsabilites sont maintenant visibles directement depuis votre profil enseignant.
+          </p>
+        </div>
+
+        <div class="responsibility-actions">
+          <button class="ghost-button" type="button" (click)="openResponsibilitiesPage()">
+            Ouvrir la page complete
+          </button>
+          @if (hasResponsibilitiesDropdown()) {
+            <button
+              class="ghost-button icon-only-button responsibility-toggle-button"
+              type="button"
+              (click)="toggleResponsibilitiesList()"
+              [class.is-expanded]="showAllResponsibilities()"
+              [title]="responsibilitiesToggleLabel()"
+              [attr.aria-label]="responsibilitiesToggleLabel()"
+            ></button>
+          }
+          <button
+            class="primary-button icon-only-button icon-add"
+            type="button"
+            (click)="openResponsibilityCreatePage()"
+            title="Ajouter une responsabilite"
+            aria-label="Ajouter une responsabilite"
+          ></button>
+        </div>
+      </div>
+
+      @if (responsibilitySummary(); as summary) {
+        <div class="metric-grid compact-metrics">
+          <article class="metric-card accent-card">
+            <span>Total responsabilites</span>
+            <strong>{{ summary.totalResponsibilities }}</strong>
+          </article>
+          <article class="metric-card">
+            <span>Actives</span>
+            <strong>{{ summary.totalActiveResponsibilities }}</strong>
+          </article>
+          <article class="metric-card">
+            <span>Terminees</span>
+            <strong>{{ summary.totalCompletedResponsibilities }}</strong>
+          </article>
+          <article class="metric-card">
+            <span>Pilotage</span>
+            <strong>{{ summary.totalLeadershipResponsibilities }}</strong>
+          </article>
+        </div>
+      }
+
+      @if (displayedResponsibilities().length > 0) {
+        <div class="responsibility-list">
+          @for (activity of displayedResponsibilities(); track activity.id) {
+            <article class="responsibility-row">
+              <div>
+                <span class="detail-label">Type</span>
+                <strong>{{ formatResponsibilityType(activity.responsibilityType) }}</strong>
+              </div>
+              <div>
+                <span class="detail-label">Etat</span>
+                <strong>{{ responsibilityState(activity) }}</strong>
+              </div>
+              <div>
+                <span class="detail-label">Debut</span>
+                <strong>{{ activity.startDate | date: 'dd/MM/yyyy' }}</strong>
+              </div>
+              <div>
+                <span class="detail-label">Fin</span>
+                <strong>{{ activity.endDate ? (activity.endDate | date: 'dd/MM/yyyy') : 'En cours' }}</strong>
+              </div>
+              <div>
+                <span class="detail-label">Statut workflow</span>
+                <strong>{{ activity.status }}</strong>
+              </div>
+              <div>
+                <span class="detail-label">Annee universitaire</span>
+                <strong>{{ activity.academicYear }}</strong>
+              </div>
+            </article>
+          }
+        </div>
+      } @else {
+        <p class="security-copy">
+          Aucune responsabilite n'est encore enregistree sur ce compte.
+        </p>
+      }
+    </section>
+  }
+
+  <section class="profile-grid">
+    <div class="panel">
+      <p class="eyebrow">Informations personnelles</p>
+      <h2 class="section-title">Mettre a jour mon profil</h2>
+
+      <form class="form-grid" [formGroup]="profileForm" (ngSubmit)="saveProfile()">
+        <label class="field">
+          <span>Prenom</span>
+          <input formControlName="firstName" />
+        </label>
+
+        <label class="field">
+          <span>Nom</span>
+          <input formControlName="lastName" />
+        </label>
+
+        <label class="field full-width">
+          <span>Email</span>
+          <input formControlName="email" type="email" />
+        </label>
+
+        <div class="readonly-grid full-width">
+          <div>
+            <span class="detail-label">Role</span>
+            <strong>{{ role() }}</strong>
+          </div>
+          <div>
+            <span class="detail-label">Departement</span>
+            <strong>{{ user()?.departmentName || 'Aucun' }}</strong>
+          </div>
+        </div>
+
+        <button class="primary-button full-width" type="submit" [disabled]="saving()">
+          {{ saving() ? 'Enregistrement...' : 'Enregistrer le profil' }}
+        </button>
+      </form>
+    </div>
+
+    <div class="panel security-panel">
+      <div class="security-header">
+        <div class="security-header-copy">
+          <p class="eyebrow">Securite du compte</p>
+          <h2 class="section-title">Double authentification</h2>
+        </div>
+        <button
+          class="ghost-button icon-only-button security-toggle-button"
+          type="button"
+          (click)="toggleSecurityDetails()"
+          [class.is-expanded]="showSecurityDetails()"
+          [title]="securityDetailsToggleLabel()"
+          [attr.aria-label]="securityDetailsToggleLabel()"
+        ></button>
+      </div>
+
+      @if (twoFactorStatus(); as status) {
+        <div class="security-status-row">
+          <span class="status-pill" [class.status-pill--active]="status.enabled">
+            {{ status.enabled ? 'Protection activee' : status.pendingEnrollment ? 'Configuration en cours' : 'Protection inactive' }}
+          </span>
+          <span class="security-meta">{{ status.backupCodesRemaining }} code(s) de secours disponibles</span>
+        </div>
+
+        @if (isMandatoryTwoFactorRole() && !status.enabled) {
+          <p class="security-copy security-mandatory-note">
+            La double authentification est obligatoire pour ce role. Activez-la pour acceder a toutes les fonctionnalites.
+          </p>
+        }
+
+        @if (showSecurityDetails()) {
+          <div class="security-primary-block">
+            @if (status.enabled) {
+              <div class="readonly-grid security-summary">
+                <div>
+                  <span class="detail-label">Application</span>
+                  <strong>{{ status.issuer }}</strong>
+                </div>
+                <div>
+                  <span class="detail-label">Identifiant</span>
+                  <strong>{{ status.accountName }}</strong>
+                </div>
+              </div>
+
+              <form class="security-form" [formGroup]="disableTwoFactorForm" (ngSubmit)="disableTwoFactor()" novalidate>
+                <label class="field">
+                  <span>Mot de passe actuel</span>
+                  <input type="password" formControlName="currentPassword" autocomplete="current-password" />
+                </label>
+
+                <label class="field">
+                  <span>Code d'authentification ou code de secours</span>
+                  <input type="text" formControlName="code" placeholder="123456 ou ABCD-EFGH" />
+                </label>
+
+                <div class="security-actions full-width">
+                  <button class="ghost-button" type="button" (click)="regenerateBackupCodes()" [disabled]="twoFactorBusy()">
+                    {{ twoFactorBusy() ? 'Verification...' : 'Regenerer les codes de secours' }}
+                  </button>
+                  <button class="primary-button security-danger-button" type="submit" [disabled]="twoFactorBusy()">
+                    {{ twoFactorBusy() ? 'Verification...' : 'Desactiver la double authentification' }}
+                  </button>
+                </div>
+              </form>
+            } @else {
+              @if (status.pendingEnrollment) {
+                <div class="setup-card">
+                  <p class="setup-title">Etapes d'activation</p>
+                  <p class="security-copy">
+                    Scannez le QR code avec Microsoft Authenticator, Google Authenticator ou toute application TOTP compatible.
+                  </p>
+
+                  @if (twoFactorQrCodeDataUrl()) {
+                    <div class="qr-code-box">
+                      <img [src]="twoFactorQrCodeDataUrl()" alt="QR code de configuration de la double authentification" />
+                    </div>
+                  }
+
+                  @if (twoFactorQrCodeError()) {
+                    <p class="security-copy qr-code-error">{{ twoFactorQrCodeError() }}</p>
+                  }
+
+                  <ol class="setup-steps">
+                    <li>Ouvrez votre application d'authentification.</li>
+                    <li>Scannez ce QR code ou ajoutez un compte manuellement avec la cle secrete ci-dessous.</li>
+                    <li>Saisissez ensuite votre mot de passe actuel et le code a 6 chiffres genere.</li>
+                  </ol>
+
+                  <div class="secret-box">
+                    <div class="secret-box-header">
+                      <span class="detail-label">Cle secrete</span>
+                      <button class="ghost-button secret-copy-button" type="button" (click)="copyManualEntryKey()">
+                        Copier la cle
+                      </button>
+                    </div>
+                    <strong>{{ formattedManualEntryKey() }}</strong>
+                    <p class="security-copy secret-help">
+                      Si vous etes sur PC, utilisez "Entrer une cle de configuration" dans l'application mobile.
+                    </p>
+                  </div>
+
+                  <label class="field full-width">
+                    <span>Lien otpauth</span>
+                    <textarea rows="4" readonly>{{ status.otpAuthUri }}</textarea>
+                  </label>
+
+                  <div class="security-actions full-width">
+                    <button class="ghost-button" type="button" (click)="copyOtpAuthUri()">
+                      Copier le lien otpauth
+                    </button>
+                  </div>
+                </div>
+
+                <form class="security-form" [formGroup]="enableTwoFactorForm" (ngSubmit)="enableTwoFactor()" novalidate>
+                  <label class="field">
+                    <span>Mot de passe actuel</span>
+                    <input type="password" formControlName="currentPassword" autocomplete="current-password" />
+                  </label>
+
+                  <label class="field">
+                    <span>Code a 6 chiffres</span>
+                    <input
+                      type="text"
+                      formControlName="code"
+                      placeholder="123456"
+                      inputmode="numeric"
+                      maxlength="6"
+                      autocomplete="one-time-code"
+                    />
+                  </label>
+
+                  <div class="security-actions full-width">
+                    <button class="ghost-button" type="button" (click)="startTwoFactorSetup()" [disabled]="twoFactorBusy()">
+                      Regenerer le secret
+                    </button>
+                    <button class="primary-button" type="submit" [disabled]="twoFactorBusy()">
+                      {{ twoFactorBusy() ? 'Activation...' : 'Activer la double authentification' }}
+                    </button>
+                  </div>
+                </form>
+              } @else {
+                <button class="primary-button full-width" type="button" (click)="startTwoFactorSetup()" [disabled]="twoFactorBusy()">
+                  {{ twoFactorBusy() ? 'Preparation...' : 'Configurer la double authentification' }}
+                </button>
+              }
+            }
+          </div>
+        }
+      } @else {
+        @if (loading()) {
+          <p class="security-copy">Chargement de la securite du compte...</p>
+        } @else {
+          <div class="security-block">
+            <p class="security-copy">
+              {{ securityLoadError() || 'La securite du compte n a pas pu etre chargee.' }}
+            </p>
+            <div class="security-actions full-width">
+              <button
+                class="ghost-button"
+                type="button"
+                (click)="loadProfilePage()"
+                [disabled]="loading() || twoFactorBusy() || faceRecognitionBusy()"
+              >
+                Reessayer
+              </button>
+              <button class="primary-button" type="button" (click)="startTwoFactorSetup()" [disabled]="twoFactorBusy()">
+                {{ twoFactorBusy() ? 'Preparation...' : 'Configurer la double authentification' }}
+              </button>
+            </div>
+          </div>
+        }
+      }
+
+      @if (showSecurityDetails()) {
+        <div class="security-block">
+          <div class="security-block__header">
+            <div>
+              <h3 class="section-subtitle">Reconnaissance faciale par camera</h3>
+              <p class="security-copy">
+                Enregistrez votre visage avec la camera de l'appareil pour proposer une connexion par reconnaissance faciale.
+              </p>
+            </div>
+            <div class="security-block-actions">
+              <span class="status-pill" [class.status-pill--active]="isFaceRecognitionEnabled()">
+                {{ isFaceRecognitionEnabled() ? 'Visage enregistre' : 'Visage non enregistre' }}
+              </span>
+              <button
+                class="ghost-button icon-only-button security-toggle-button section-toggle-button"
+                type="button"
+                (click)="toggleFaceSectionDetails()"
+                [class.is-expanded]="showFaceSectionDetails()"
+                [title]="faceSectionToggleLabel()"
+                [attr.aria-label]="faceSectionToggleLabel()"
+              ></button>
+            </div>
+          </div>
+
+          @if (showFaceSectionDetails()) {
+            @if (!faceRecognitionSupported()) {
+              <p class="security-copy">
+                Cet appareil ou ce navigateur ne permet pas d'utiliser la camera pour cette fonctionnalite.
+              </p>
+            } @else if (faceRecognitionStatus(); as status) {
+              <div class="camera-enrollment-card">
+                <div class="camera-enrollment-frame" [class.camera-enrollment-frame--active]="faceCameraReady()">
+                  <video #faceEnrollmentVideo class="camera-enrollment-video" autoplay muted playsinline></video>
+                  @if (!faceCameraReady()) {
+                    <div class="camera-enrollment-placeholder">
+                      <span>La camera affichera ici le visage a enregistrer pour ce compte.</span>
+                    </div>
+                  }
+                </div>
+
+                <div class="camera-enrollment-actions">
+                  <button class="ghost-button" type="button" (click)="activateFaceCamera()" [disabled]="faceRecognitionBusy()">
+                    {{ faceRecognitionBusy() ? 'Initialisation...' : faceCameraReady() ? 'Relancer la camera' : 'Activer la camera' }}
+                  </button>
+                  <button
+                    class="primary-button"
+                    type="button"
+                    (click)="enrollFaceRecognition()"
+                    [disabled]="faceRecognitionBusy() || !faceCameraReady()"
+                  >
+                    {{ faceRecognitionBusy() ? 'Analyse...' : status.enrolled ? 'Mettre a jour le visage' : 'Enregistrer mon visage' }}
+                  </button>
+                </div>
+              </div>
+
+              @if (status.enrolled) {
+                <div class="readonly-grid security-summary">
+                  <div>
+                    <span class="detail-label">Activation</span>
+                    <strong>{{ status.enrolledAt ? (status.enrolledAt | date: 'dd/MM/yyyy HH:mm') : 'Activee' }}</strong>
+                  </div>
+                  <div>
+                    <span class="detail-label">Derniere utilisation</span>
+                    <strong>{{ status.lastUsedAt ? (status.lastUsedAt | date: 'dd/MM/yyyy HH:mm') : 'Jamais' }}</strong>
+                  </div>
+                </div>
+
+                <div class="security-actions full-width">
+                  <button class="ghost-button" type="button" (click)="removeFaceRecognition()" [disabled]="faceRecognitionBusy()">
+                    {{ faceRecognitionBusy() ? 'Suppression...' : 'Supprimer le visage enregistre' }}
+                  </button>
+                </div>
+              } @else {
+                <p class="security-copy">
+                  Activez la camera puis enregistrez un visage de reference. Ensuite, ce compte pourra se connecter depuis l'ecran de login avec la camera.
+                </p>
+              }
+            } @else {
+              <p class="security-copy">
+                Chargement de la reconnaissance faciale du compte...
+              </p>
+            }
+          } @else {
+            <p class="security-copy">
+              Ouvrez ce bloc pour gerer la camera et la connexion par reconnaissance faciale.
+            </p>
+          }
+        </div>
+
+        @if (backupCodes().length > 0) {
+          <div class="backup-card">
+            <p class="setup-title">Codes de secours</p>
+            <p class="security-copy">
+              Conservez ces codes en lieu sur. Chaque code ne peut etre utilise qu'une seule fois.
+            </p>
+            <div class="backup-grid">
+              @for (code of backupCodes(); track code) {
+                <div class="backup-code-row">
+                  <span class="backup-code">{{ code }}</span>
+                  <button class="ghost-button backup-copy-button" type="button" (click)="copyBackupCode(code)">
+                    {{ copiedBackupCode() === code ? 'Copie' : 'Copier' }}
+                  </button>
+                </div>
+              }
+            </div>
+          </div>
+        }
+      }
+    </div>
+  </section>
+
+</div>

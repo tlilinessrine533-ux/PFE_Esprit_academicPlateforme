@@ -1,0 +1,8 @@
+target/
+.idea/
+.vscode/
+*.iml
+.mail.env
+*.log
+uploaded-medical-certificates/
+generated-reports/

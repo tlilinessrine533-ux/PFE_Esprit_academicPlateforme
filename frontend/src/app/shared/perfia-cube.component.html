@@ -1,0 +1,61 @@
+<button
+  class="perfia-cube-wrapper"
+  type="button"
+  [attr.data-role]="visualRole"
+  [class.is-open]="isOpen"
+  [attr.title]="title"
+  [attr.aria-label]="title"
+  [attr.aria-pressed]="isOpen"
+  (click)="handleClick()"
+>
+  <div class="perfia-aura"></div>
+  <div class="perfia-ring1">
+    <div class="perfia-comet"></div>
+  </div>
+  <div class="perfia-ring2"></div>
+
+  <div
+    class="perfia-spark"
+    style="width:6px;height:6px;background:var(--cube-primary);top:4px;left:4px;animation-duration:1.8s"
+  ></div>
+  <div
+    class="perfia-spark"
+    style="width:4px;height:4px;background:#ff8844;top:4px;right:4px;animation-duration:2.4s;animation-delay:0.3s"
+  ></div>
+  <div
+    class="perfia-spark"
+    style="width:3px;height:3px;background:#ffcc44;bottom:14px;left:4px;animation-duration:3s;animation-delay:0.7s"
+  ></div>
+  <div
+    class="perfia-spark"
+    style="width:4px;height:4px;background:var(--cube-primary);bottom:14px;right:4px;animation-duration:2s;animation-delay:1s"
+  ></div>
+
+  <div class="perfia-scene">
+    <div class="perfia-cube">
+      <div class="perfia-face front">
+        <div class="perfia-face-text">
+          <span class="perfia-face-ia">IA</span>
+        </div>
+      </div>
+      <div class="perfia-face back">
+        <span class="perfia-face-side">ESB</span>
+      </div>
+      <div class="perfia-face right">
+        <span class="perfia-face-side">ESB</span>
+      </div>
+      <div class="perfia-face left">
+        <span class="perfia-face-side">ESB</span>
+      </div>
+      <div class="perfia-face top"></div>
+      <div class="perfia-face bottom"></div>
+    </div>
+    <div class="perfia-ground"></div>
+  </div>
+
+  <div class="perfia-status-dot"></div>
+
+  @if (label) {
+    <span class="perfia-label">{{ label }}</span>
+  }
+</button>

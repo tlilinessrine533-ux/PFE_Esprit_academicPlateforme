@@ -1,0 +1,340 @@
+<div class="page-shell">
+  <section class="panel page-header">
+    <div>
+      <p class="eyebrow">Administration</p>
+      <h1 class="section-title">Pilotage RH et decisions finales</h1>
+      <p class="page-copy">Configuration des regles de calcul, evaluation bonus/promotion et historique administratif.</p>
+    </div>
+
+    <form class="period-form" [formGroup]="periodForm">
+      <label class="field">
+        <span>Annee universitaire</span>
+        <input formControlName="periodLabel" />
+      </label>
+      <div class="period-actions">
+        <button class="ghost-button" type="button" (click)="refreshEvaluations()" [disabled]="loading()">
+          {{ loading() ? 'Chargement...' : 'Actualiser' }}
+        </button>
+        <button
+          class="ghost-button icon-only-button icon-dashboard dashboard-toggle-button"
+          [class.is-active]="showAdministrationDashboard()"
+          type="button"
+          (click)="toggleAdministrationDashboard()"
+          [title]="showAdministrationDashboard() ? 'Masquer Dashboard RH' : 'Afficher Dashboard RH'"
+          [attr.aria-label]="showAdministrationDashboard() ? 'Masquer Dashboard RH' : 'Afficher Dashboard RH'"
+        ></button>
+      </div>
+    </form>
+  </section>
+
+  @if (errorMessage()) {
+    <div class="error-banner">{{ errorMessage() }}</div>
+  }
+
+  @if (successMessage()) {
+    <div class="success-banner">{{ successMessage() }}</div>
+  }
+
+  <section class="panel">
+    <div class="section-header">
+      <div>
+        <p class="eyebrow">Configuration</p>
+        <h2 class="section-title">Regles de calcul</h2>
+      </div>
+      <button class="primary-button" type="button" (click)="saveConfiguration()" [disabled]="configSaving()">
+        {{ configSaving() ? 'Enregistrement...' : 'Enregistrer la configuration' }}
+      </button>
+    </div>
+
+    <form class="config-grid" [formGroup]="configForm">
+      <label class="field">
+        <span>Base bonus</span>
+        <input formControlName="bonusBaseAmount" type="number" min="0" step="0.01" />
+      </label>
+      <label class="field">
+        <span>Bonus par point</span>
+        <input formControlName="bonusAmountPerPoint" type="number" min="0" step="0.01" />
+      </label>
+      <label class="field">
+        <span>Penalite par jour d'absence</span>
+        <input formControlName="bonusAbsencePenaltyPerDay" type="number" min="0" step="0.01" />
+      </label>
+      <label class="field">
+        <span>Facteur points enseignement (promotion)</span>
+        <input formControlName="promotionTeachingPointFactor" type="number" min="0" step="0.01" />
+      </label>
+      <label class="field">
+        <span>Points activite enseignement</span>
+        <input formControlName="teachingActivityPoint" type="number" min="0" step="0.01" />
+      </label>
+      <label class="field">
+        <span>Points activite encadrement</span>
+        <input formControlName="supervisionActivityPoint" type="number" min="0" step="0.01" />
+      </label>
+      <label class="field">
+        <span>Points activite recherche</span>
+        <input formControlName="researchActivityPoint" type="number" min="0" step="0.01" />
+      </label>
+      <label class="field">
+        <span>Points activite evenement</span>
+        <input formControlName="eventActivityPoint" type="number" min="0" step="0.01" />
+      </label>
+      <label class="field">
+        <span>Points activite surveillance</span>
+        <input formControlName="examSurveillanceActivityPoint" type="number" min="0" step="0.01" />
+      </label>
+      <label class="field">
+        <span>Points activite responsabilite</span>
+        <input formControlName="responsibilityActivityPoint" type="number" min="0" step="0.01" />
+      </label>
+      <label class="field">
+        <span>Points activite disponibilite</span>
+        <input formControlName="availabilityActivityPoint" type="number" min="0" step="0.01" />
+      </label>
+    </form>
+  </section>
+
+  <section class="panel">
+    <div class="section-header">
+      <div>
+        <p class="eyebrow">Evaluations</p>
+        <h2 class="section-title">Bonus et points de promotion</h2>
+      </div>
+      <div class="section-header-actions">
+        <label class="field search-field">
+          <span>Recherche</span>
+          <input (input)="updateSearchTerm($any($event.target).value)" placeholder="Enseignant, departement, statut..." />
+        </label>
+        @if (hasBonusRowsToggle()) {
+          <button
+            class="ghost-button icon-only-button history-toggle-button"
+            [class.is-expanded]="showAllBonusRows()"
+            type="button"
+            (click)="toggleBonusRowsVisibility()"
+            [title]="bonusRowsToggleLabel()"
+            [attr.aria-label]="bonusRowsToggleLabel()"
+          ></button>
+        }
+      </div>
+    </div>
+
+    <div class="kpi-list">
+      <span><strong>Activites validees :</strong> {{ validatedActivitiesTotal() }}</span>
+      <span><strong>Total bonus :</strong> {{ bonusTotal() | number: '1.0-2' }}</span>
+      <span><strong>Total points promotion :</strong> {{ promotionPointsTotal() | number: '1.0-2' }}</span>
+    </div>
+
+    @if (showAdministrationDashboard()) {
+      <div class="metric-grid compact-metrics">
+        <article class="metric-card">
+          <span>Enseignants visibles</span>
+          <strong>{{ filteredEvaluations().length }}</strong>
+        </article>
+        <article class="metric-card">
+          <span>Enseignants eligibles prime</span>
+          <strong>{{ eligibleTeachersCount() }}</strong>
+        </article>
+        <article class="metric-card">
+          <span>Dossiers en attente</span>
+          <strong>{{ pendingDecisionCount() }}</strong>
+        </article>
+      </div>
+
+      <div class="admin-dashboard-grid">
+        <app-chart-panel
+          title="Decisions RH"
+          subtitle="Pie chart des statuts de decision finale."
+          type="pie"
+          [data]="decisionStatusChartData()"
+          [height]="280"
+        ></app-chart-panel>
+        <app-chart-panel
+          title="Primes par departement"
+          subtitle="Somme estimee des primes par departement."
+          type="bar"
+          [data]="bonusByDepartmentChartData()"
+          [height]="280"
+          [legend]="false"
+        ></app-chart-panel>
+        <app-chart-panel
+          title="Points promotion par departement"
+          subtitle="Aggregation des points de promotion par departement."
+          type="bar"
+          [data]="pointsByDepartmentChartData()"
+          [height]="280"
+          [legend]="false"
+        ></app-chart-panel>
+        <app-chart-panel
+          title="Top primes enseignants"
+          subtitle="Line chart des meilleures primes estimees."
+          type="line"
+          [data]="bonusTrendChartData()"
+          [height]="280"
+          [legend]="false"
+        ></app-chart-panel>
+      </div>
+    }
+
+    @if (filteredEvaluations().length === 0) {
+      <p class="empty-state">Aucune evaluation disponible sur la periode selectionnee.</p>
+    } @else {
+      <div class="table-scroll">
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>Enseignant</th>
+              <th>Departement</th>
+              <th>Activites validees</th>
+              <th>Points enseignement</th>
+              <th>Jours absence</th>
+              <th>Points activites</th>
+              <th>Bonus calcule</th>
+              <th>Points promotion</th>
+              <th>Decision</th>
+              <th class="col-actions">Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (item of visibleBonusRows(); track item.teacherId) {
+              <tr>
+                <td>{{ item.teacherName }}</td>
+                <td>{{ item.departmentName ?? '-' }}</td>
+                <td>{{ item.validatedActivities }}</td>
+                <td>{{ item.validatedTeachingPoints | number: '1.0-2' }}</td>
+                <td>{{ item.absenceDays }}</td>
+                <td>{{ item.activityTypePoints | number: '1.0-2' }}</td>
+                <td>{{ item.calculatedBonus | number: '1.0-2' }}</td>
+                <td>{{ item.calculatedPromotionPoints | number: '1.0-2' }}</td>
+                <td>
+                  <span class="status-pill" [class]="statusClass(item.decisionStatus)">
+                    {{ statusLabel(item.decisionStatus) }}
+                  </span>
+                </td>
+                <td class="action-cell col-actions">
+                  <div class="admin-action-stack">
+                    <button
+                      class="link-button approve-link icon-only-button icon-submit"
+                      type="button"
+                      (click)="submitDecision(item, 'VALIDE')"
+                      [disabled]="decisionLoadingTeacherId() != null"
+                      title="Valider"
+                      aria-label="Valider"
+                    ></button>
+                    <button
+                      class="link-button danger-link icon-only-button icon-delete"
+                      type="button"
+                      (click)="submitDecision(item, 'REJETE')"
+                      [disabled]="decisionLoadingTeacherId() != null"
+                      title="Rejeter"
+                      aria-label="Rejeter"
+                    ></button>
+                  </div>
+                </td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+    }
+  </section>
+
+  <section class="panel">
+    <div class="section-header">
+      <div>
+        <p class="eyebrow">Activites validees</p>
+        <h2 class="section-title">Consultation RH des activites validees</h2>
+      </div>
+      @if (hasConsultationRowsToggle()) {
+        <button
+          class="ghost-button icon-only-button history-toggle-button"
+          [class.is-expanded]="showAllConsultationRows()"
+          type="button"
+          (click)="toggleConsultationRowsVisibility()"
+          [title]="consultationRowsToggleLabel()"
+          [attr.aria-label]="consultationRowsToggleLabel()"
+        ></button>
+      }
+    </div>
+
+    @if (filteredValidatedActivities().length === 0) {
+      <p class="empty-state">Aucune activite validee disponible pour la periode selectionnee.</p>
+    } @else {
+      <div class="table-scroll">
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>Activite</th>
+              <th>Type</th>
+              <th>Enseignant</th>
+              <th>Statut</th>
+              <th>Periode</th>
+              <th>Mise a jour</th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (activity of visibleConsultationRows(); track activity.id) {
+              <tr>
+                <td>
+                  <strong>{{ activity.title }}</strong>
+                  <div class="table-meta">{{ activity.subtitle }}</div>
+                </td>
+                <td>{{ activity.activityType }}</td>
+                <td>{{ activity.teacherName }}</td>
+                <td>{{ activity.status }}</td>
+                <td>{{ activity.academicYear }}</td>
+                <td>{{ activity.updatedAt | date: 'dd/MM/yyyy HH:mm' }}</td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+    }
+  </section>
+
+  <section class="panel">
+    <div class="section-header">
+      <div>
+        <p class="eyebrow">Historique administratif</p>
+        <h2 class="section-title">Journal des decisions finales</h2>
+      </div>
+      @if (hasHistoryRowsToggle()) {
+        <button
+          class="ghost-button icon-only-button history-toggle-button"
+          [class.is-expanded]="showAllHistoryRows()"
+          type="button"
+          (click)="toggleHistoryRowsVisibility()"
+          [title]="historyRowsToggleLabel()"
+          [attr.aria-label]="historyRowsToggleLabel()"
+        ></button>
+      }
+    </div>
+
+    @if (history().length === 0) {
+      <p class="empty-state">Aucune decision finale enregistree sur cette periode.</p>
+    } @else {
+      <div class="history-list">
+        @for (item of visibleHistoryRows(); track item.id) {
+          <article class="history-card">
+            <div class="history-card__header">
+              <strong>{{ item.teacherName }}</strong>
+              <span class="status-pill" [class]="statusClass(item.decisionStatus)">
+                {{ statusLabel(item.decisionStatus) }}
+              </span>
+            </div>
+            <div class="history-card__meta">
+              <span><strong>Departement :</strong> {{ item.departmentName ?? '-' }}</span>
+              <span><strong>Periode :</strong> {{ item.periodLabel }}</span>
+              <span><strong>Bonus :</strong> {{ item.calculatedBonus | number: '1.0-2' }}</span>
+              <span><strong>Promotion :</strong> {{ item.calculatedPromotionPoints | number: '1.0-2' }}</span>
+              <span><strong>Decide par :</strong> {{ item.decidedByName ?? '-' }}</span>
+              <span><strong>Date :</strong> {{ item.decidedAt ? (item.decidedAt | date: 'dd/MM/yyyy HH:mm') : '-' }}</span>
+            </div>
+            @if (item.decisionComment) {
+              <p>{{ item.decisionComment }}</p>
+            }
+          </article>
+        }
+      </div>
+    }
+  </section>
+</div>

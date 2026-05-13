@@ -1,0 +1,526 @@
+<div class="page-shell">
+  <section class="panel page-header">
+    <div>
+      <p class="eyebrow">Recherche</p>
+      <h1 class="section-title">{{ isCreatePage ? 'Ajouter une recherche' : 'Recherche et developpement' }}</h1>
+    </div>
+
+    <div class="page-header-actions">
+      @if (isCreatePage) {
+        <button class="ghost-button" type="button" (click)="goToListPage()">Retour a la liste</button>
+      } @else {
+        @if (canCreate()) {
+          <button
+            class="primary-button icon-only-button icon-add"
+            type="button"
+            (click)="goToCreatePage()"
+            title="Ajouter une recherche"
+            aria-label="Ajouter une recherche"
+          ></button>
+        }
+        <button class="ghost-button" type="button" (click)="loadData()" [disabled]="loading()">
+          {{ loading() ? 'Chargement...' : 'Actualiser' }}
+        </button>
+        <button
+          class="ghost-button icon-only-button icon-dashboard dashboard-toggle-button"
+          [class.is-active]="showActivityDashboard()"
+          type="button"
+          (click)="toggleActivityDashboard()"
+          [title]="showActivityDashboard() ? 'Masquer Dashboard Recherche' : 'Afficher Dashboard Recherche'"
+          [attr.aria-label]="showActivityDashboard() ? 'Masquer Dashboard Recherche' : 'Afficher Dashboard Recherche'"
+        ></button>
+      }
+    </div>
+  </section>
+
+  @if (errorMessage()) {
+    <div class="error-banner">{{ errorMessage() }}</div>
+  }
+
+  @if (successMessage()) {
+    <div class="success-banner">{{ successMessage() }}</div>
+  }
+
+  @if (isCreatePage) {
+    <section class="panel">
+      <p class="eyebrow">Nouvelle activite</p>
+      <h2 class="section-title">Ajouter une activite de recherche et developpement</h2>
+
+      <form class="form-grid" [formGroup]="createForm" (ngSubmit)="createResearch()">
+        <label class="field">
+          <span>Type d'activite</span>
+          <select formControlName="publicationType">
+            @for (type of researchTypes; track type) {
+              <option [value]="type">{{ typeLabel(type) }}</option>
+            }
+          </select>
+        </label>
+
+        <label class="field">
+          <span>Annee universitaire</span>
+          <input formControlName="academicYear" />
+        </label>
+
+        @if (isDevelopmentType(createForm.controls.publicationType.value)) {
+          <label class="field full-width">
+            <span>Titre du PFE</span>
+            <input formControlName="title" />
+          </label>
+
+          <label class="field">
+            <span>Etudiant</span>
+            <input formControlName="studentName" />
+          </label>
+
+          <label class="field">
+            <span>Niveau</span>
+            <input formControlName="pfeLevel" />
+          </label>
+
+          <label class="field full-width">
+            <span>Livrable</span>
+            <input formControlName="deliverable" />
+          </label>
+        } @else {
+          <label class="field full-width">
+            <span>Titre</span>
+            <input formControlName="title" />
+          </label>
+
+          <label class="field full-width">
+            <span>
+              @if (isResearchProjectType(createForm.controls.publicationType.value)) {
+                Article ou conference
+              } @else if (isPresentationType(createForm.controls.publicationType.value)) {
+                Lieu de presentation
+              } @else {
+                Revue ou conference
+              }
+            </span>
+            <input formControlName="venueName" />
+          </label>
+        }
+
+        @if (isPublicationType(createForm.controls.publicationType.value)) {
+          <label class="field">
+            <span>Classement</span>
+            <select formControlName="publicationRank">
+              @for (rank of publicationRanks; track rank) {
+                <option [value]="rank">{{ rankLabel(rank) }}</option>
+              }
+            </select>
+          </label>
+
+          <label class="field">
+            <span>Annee de publication</span>
+            <input formControlName="publicationYear" type="number" min="2000" max="2100" />
+          </label>
+
+          <label class="field">
+            <span>Indexation</span>
+            <input formControlName="indexingName" />
+          </label>
+
+          <label class="field">
+            <span>DOI</span>
+            <input formControlName="doi" />
+          </label>
+        }
+
+        <label class="field">
+          <span>Points attribues</span>
+          <input
+            [value]="pointsPreview(createForm.controls.publicationType.value, createForm.controls.publicationRank.value)"
+            type="number"
+            readonly
+          />
+        </label>
+
+        <div class="detail-actions full-width">
+          <button class="primary-button" type="submit" [disabled]="saving()">
+            {{ saving() ? 'Enregistrement...' : "Enregistrer l'activite" }}
+          </button>
+          <button class="ghost-button" type="button" (click)="goToListPage()">Annuler</button>
+        </div>
+      </form>
+    </section>
+  } @else {
+    @if (summary(); as summaryValue) {
+      <section class="panel">
+        <p class="eyebrow">Resume</p>
+        <div class="metric-grid">
+          <article class="metric-card accent-card">
+            <span>Total activites</span>
+            <strong>{{ summaryValue.totalResearchActivities }}</strong>
+          </article>
+          <article class="metric-card">
+            <span>Total points</span>
+            <strong>{{ summaryValue.totalPoints | number: '1.0-2' }}</strong>
+          </article>
+          <article class="metric-card">
+            <span>Projets developpement</span>
+            <strong>{{ summaryValue.totalDevelopmentProjects }}</strong>
+          </article>
+          <article class="metric-card">
+            <span>Projets recherche</span>
+            <strong>{{ summaryValue.totalResearchProjects }}</strong>
+          </article>
+          <article class="metric-card">
+            <span>Publications</span>
+            <strong>{{ summaryValue.totalPublications }}</strong>
+          </article>
+          <article class="metric-card">
+            <span>Presentations</span>
+            <strong>{{ summaryValue.totalPresentations }}</strong>
+          </article>
+        </div>
+      </section>
+    }
+
+    @if (showActivityDashboard()) {
+      <section class="panel activity-dashboard-panel">
+        <div class="activity-dashboard-head">
+          <div>
+            <p class="eyebrow">Dashboard activite</p>
+            <h2 class="section-title">{{ researchComparisonTitle() }}</h2>
+            <p class="activity-dashboard-subtitle">Annee universitaire {{ dashboardPeriodLabel() }}</p>
+          </div>
+          <span class="activity-dashboard-year">Recherche</span>
+        </div>
+
+        @if (dashboardInsightsError()) {
+          <p class="activity-dashboard-note activity-dashboard-note--error">{{ dashboardInsightsError() }}</p>
+        } @else if (dashboardInsightsLoading()) {
+          <p class="activity-dashboard-note">Chargement du dashboard recherche...</p>
+        } @else {
+          <p class="activity-dashboard-note">{{ researchComparisonNote() }}</p>
+        }
+
+        <div class="activity-dashboard-grid">
+          <app-chart-panel
+            title="Comparatif recherche"
+            [subtitle]="researchComparisonSubtitle()"
+            type="bar"
+            [data]="researchComparisonChartData()"
+            [height]="280"
+            [legend]="false"
+          ></app-chart-panel>
+
+          <app-chart-panel
+            title="Evolution annuelle recherche"
+            [subtitle]="researchTrendSubtitle()"
+            type="line"
+            [data]="researchTrendChartData()"
+            [height]="280"
+            [legend]="false"
+          ></app-chart-panel>
+
+          <app-chart-panel
+            title="Repartition par type d'activite"
+            subtitle="Vue proportionnelle des 4 types de la recherche."
+            type="doughnut"
+            [data]="researchDistributionChartData()"
+            [height]="280"
+          ></app-chart-panel>
+        </div>
+      </section>
+    }
+
+    <section class="panel">
+      <p class="eyebrow">Filtres</p>
+      <div class="filter-grid">
+        <label class="field">
+          <span>Recherche</span>
+          <input
+            [value]="searchTerm()"
+            (input)="updateSearchTerm($any($event.target).value)"
+            placeholder="Titre, enseignant, etudiant, annee"
+          />
+        </label>
+
+        <label class="field">
+          <span>Type</span>
+          <select [value]="typeFilter()" (change)="updateTypeFilter($any($event.target).value)">
+            @for (type of typeFilters; track type) {
+              <option [value]="type">{{ filterTypeLabel(type) }}</option>
+            }
+          </select>
+        </label>
+      </div>
+
+      <div class="metric-grid compact-metrics">
+        <article class="metric-card">
+          <span>Resultats visibles</span>
+          <strong>{{ displayedActivities().length }}</strong>
+        </article>
+        <article class="metric-card">
+          <span>Publications visibles</span>
+          <strong>{{ visiblePublicationCount() }}</strong>
+        </article>
+        <article class="metric-card">
+          <span>Points visibles</span>
+          <strong>{{ visiblePoints() | number: '1.0-2' }}</strong>
+        </article>
+      </div>
+    </section>
+
+    <section class="panel">
+      <div class="history-header">
+        <div class="history-header-copy">
+          <p class="eyebrow">Historique</p>
+          <h2 class="section-title">Liste des recherches</h2>
+        </div>
+
+        @if (hasHistoryToggle()) {
+          <button
+            class="ghost-button icon-only-button history-toggle-button"
+            [class.is-expanded]="showFullHistory()"
+            type="button"
+            (click)="toggleHistoryVisibility()"
+            [title]="historyToggleLabel()"
+            [attr.aria-label]="historyToggleLabel()"
+          ></button>
+        }
+      </div>
+
+      <div class="table-wrapper">
+        <table class="data-table research-table">
+          <thead>
+            <tr>
+              <th scope="col" class="col-title">Titre</th>
+              <th scope="col" class="col-type">Type</th>
+              <th scope="col" class="col-detail">Details</th>
+              <th scope="col" class="col-points">Points</th>
+              @if (showTeacherIdentity()) {
+                <th scope="col" class="col-teacher">Enseignant</th>
+              }
+              <th scope="col" class="col-actions">Action</th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (activity of displayedActivities(); track activity.id) {
+              <tr>
+                <td class="col-title">
+                  <strong>{{ activity.title }}</strong>
+                  <div class="table-meta">{{ activity.publicationYear }} - {{ activity.academicYear }}</div>
+                </td>
+                <td class="col-type">{{ typeLabel(activity.publicationType) }}</td>
+                <td class="col-detail">{{ detailLine(activity) }}</td>
+                <td class="col-points">{{ pointsForActivity(activity) | number: '1.0-2' }}</td>
+                @if (showTeacherIdentity()) {
+                  <td class="col-teacher">{{ activity.teacherName }}</td>
+                }
+                <td class="action-cell col-actions">
+                  <div class="research-actions">
+                    <button
+                      class="link-button detail-link icon-only-button icon-view"
+                      type="button"
+                      (click)="selectActivity(activity)"
+                      title="Voir les details"
+                      aria-label="Voir les details"
+                    ></button>
+                    @if (canManage(activity)) {
+                      @if (canSubmit(activity)) {
+                        <button
+                          class="link-button approve-link icon-only-button icon-submit"
+                          type="button"
+                          (click)="submitActivity(activity)"
+                          title="Soumettre"
+                          aria-label="Soumettre"
+                        ></button>
+                      }
+                      <button
+                        class="link-button edit-link icon-only-button icon-edit"
+                        type="button"
+                        (click)="startEditing(activity)"
+                        title="Modifier"
+                        aria-label="Modifier"
+                      ></button>
+                      <button
+                        class="link-button danger-link icon-only-button icon-delete"
+                        type="button"
+                        (click)="deleteResearch(activity)"
+                        title="Supprimer"
+                        aria-label="Supprimer"
+                      ></button>
+                    }
+                  </div>
+                </td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    @if (selectedActivity(); as activity) {
+      <section #detailSection class="detail-layout single-panel">
+        <div class="panel detail-panel">
+          <div class="detail-header">
+            <div class="detail-header-copy">
+              <p class="eyebrow">Fiche detail</p>
+              <h2 class="section-title">
+                {{ editingActivityId() === activity.id ? 'Modifier la recherche' : activity.title }}
+              </h2>
+            </div>
+
+            @if (canManage(activity) && editingActivityId() !== activity.id) {
+              <button
+                class="ghost-button detail-edit-button icon-only-button icon-edit"
+                type="button"
+                (click)="startEditing(activity)"
+                title="Modifier"
+                aria-label="Modifier"
+              ></button>
+            }
+          </div>
+
+          @if (editingActivityId() === activity.id) {
+            <form class="form-grid" [formGroup]="editForm" (ngSubmit)="saveEdit()">
+              <label class="field">
+                <span>Type d'activite</span>
+                <select formControlName="publicationType">
+                  @for (type of researchTypes; track type) {
+                    <option [value]="type">{{ typeLabel(type) }}</option>
+                  }
+                </select>
+              </label>
+
+              <label class="field">
+                <span>Annee universitaire</span>
+                <input formControlName="academicYear" />
+              </label>
+
+              @if (isDevelopmentType(editForm.controls.publicationType.value)) {
+                <label class="field full-width">
+                  <span>Titre du PFE</span>
+                  <input formControlName="title" />
+                </label>
+
+                <label class="field">
+                  <span>Etudiant</span>
+                  <input formControlName="studentName" />
+                </label>
+
+                <label class="field">
+                  <span>Niveau</span>
+                  <input formControlName="pfeLevel" />
+                </label>
+
+                <label class="field full-width">
+                  <span>Livrable</span>
+                  <input formControlName="deliverable" />
+                </label>
+              } @else {
+                <label class="field full-width">
+                  <span>Titre</span>
+                  <input formControlName="title" />
+                </label>
+
+                <label class="field full-width">
+                  <span>
+                    @if (isResearchProjectType(editForm.controls.publicationType.value)) {
+                      Article ou conference
+                    } @else if (isPresentationType(editForm.controls.publicationType.value)) {
+                      Lieu de presentation
+                    } @else {
+                      Revue ou conference
+                    }
+                  </span>
+                  <input formControlName="venueName" />
+                </label>
+              }
+
+              @if (isPublicationType(editForm.controls.publicationType.value)) {
+                <label class="field">
+                  <span>Classement</span>
+                  <select formControlName="publicationRank">
+                    @for (rank of publicationRanks; track rank) {
+                      <option [value]="rank">{{ rankLabel(rank) }}</option>
+                    }
+                  </select>
+                </label>
+
+                <label class="field">
+                  <span>Annee de publication</span>
+                  <input formControlName="publicationYear" type="number" min="2000" max="2100" />
+                </label>
+
+                <label class="field">
+                  <span>Indexation</span>
+                  <input formControlName="indexingName" />
+                </label>
+
+                <label class="field">
+                  <span>DOI</span>
+                  <input formControlName="doi" />
+                </label>
+              }
+
+              <label class="field">
+                <span>Points attribues</span>
+                <input
+                  [value]="pointsPreview(editForm.controls.publicationType.value, editForm.controls.publicationRank.value)"
+                  type="number"
+                  readonly
+                />
+              </label>
+
+              <div class="detail-actions full-width">
+                <button class="primary-button" type="button" (click)="saveEdit()" [disabled]="saving()">
+                  {{ saving() ? 'Enregistrement...' : 'Enregistrer les modifications' }}
+                </button>
+                <button class="ghost-button" type="button" (click)="cancelEditing()">Annuler</button>
+              </div>
+            </form>
+          } @else {
+            <div class="detail-grid">
+              <div>
+                <span class="detail-label">Type</span>
+                <strong>{{ typeLabel(activity.publicationType) }}</strong>
+              </div>
+              <div>
+                <span class="detail-label">Points</span>
+                <strong>{{ pointsForActivity(activity) | number: '1.0-2' }}</strong>
+              </div>
+              <div class="full-width">
+                <span class="detail-label">{{ isDevelopmentType(activity.publicationType) ? 'Titre du PFE' : 'Titre' }}</span>
+                <strong>{{ activity.title }}</strong>
+              </div>
+              <div>
+                <span class="detail-label">Revue / Lieu</span>
+                <strong>{{ activity.venueName }}</strong>
+              </div>
+              <div>
+                <span class="detail-label">Classement</span>
+                <strong>{{ rankLabel(activity.publicationRank) }}</strong>
+              </div>
+              <div>
+                <span class="detail-label">Etudiant</span>
+                <strong>{{ activity.studentName || '-' }}</strong>
+              </div>
+              <div>
+                <span class="detail-label">Niveau</span>
+                <strong>{{ activity.pfeLevel || '-' }}</strong>
+              </div>
+              <div>
+                <span class="detail-label">Livrable</span>
+                <strong>{{ activity.deliverable || '-' }}</strong>
+              </div>
+              <div>
+                <span class="detail-label">Annee universitaire</span>
+                <strong>{{ activity.academicYear }}</strong>
+              </div>
+              @if (showTeacherIdentity()) {
+                <div>
+                  <span class="detail-label">Enseignant</span>
+                  <strong>{{ activity.teacherName }}</strong>
+                </div>
+              }
+            </div>
+          }
+        </div>
+      </section>
+    }
+  }
+</div>

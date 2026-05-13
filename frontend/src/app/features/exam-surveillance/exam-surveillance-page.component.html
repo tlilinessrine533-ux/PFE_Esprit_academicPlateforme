@@ -1,0 +1,407 @@
+<div class="page-shell">
+  <section class="panel page-header">
+    <div>
+      <p class="eyebrow">Surveillance</p>
+      <h1 class="section-title">{{ isCreatePage ? 'Ajouter une surveillance' : 'Surveillance des examens' }}</h1>
+    </div>
+
+    <div class="page-header-actions">
+      @if (isCreatePage) {
+        <button class="ghost-button" type="button" (click)="goToListPage()">Retour a la liste</button>
+      } @else {
+        @if (canCreate()) {
+          <button
+            class="primary-button icon-only-button icon-add"
+            type="button"
+            (click)="goToCreatePage()"
+            title="Ajouter une surveillance"
+            aria-label="Ajouter une surveillance"
+          ></button>
+        }
+        <button class="ghost-button" type="button" (click)="loadData()" [disabled]="loading()">
+          {{ loading() ? 'Chargement...' : 'Actualiser' }}
+        </button>
+        <button
+          class="ghost-button icon-only-button icon-dashboard dashboard-toggle-button"
+          [class.is-active]="showActivityDashboard()"
+          type="button"
+          (click)="toggleActivityDashboard()"
+          [title]="showActivityDashboard() ? 'Masquer Dashboard Surveillance' : 'Afficher Dashboard Surveillance'"
+          [attr.aria-label]="showActivityDashboard() ? 'Masquer Dashboard Surveillance' : 'Afficher Dashboard Surveillance'"
+        ></button>
+      }
+    </div>
+  </section>
+
+  @if (errorMessage()) {
+    <div class="error-banner">{{ errorMessage() }}</div>
+  }
+
+  @if (successMessage()) {
+    <div class="success-banner">{{ successMessage() }}</div>
+  }
+
+  @if (isCreatePage) {
+    <section class="panel">
+      <p class="eyebrow">Nouvelle surveillance</p>
+      <h2 class="section-title">Ajouter une surveillance d'examen</h2>
+
+      <form class="form-grid" [formGroup]="createForm" (ngSubmit)="createExamSurveillance()">
+        <label class="field full-width">
+          <span>Session</span>
+          <select formControlName="sessionName">
+            @for (sessionName of sessionNameOptions; track sessionName) {
+              <option [value]="sessionName">{{ sessionName }}</option>
+            }
+          </select>
+        </label>
+
+        <label class="field">
+          <span>Semestre</span>
+          <select formControlName="semester">
+            @for (semester of semesterOptions; track semester) {
+              <option [value]="semester">{{ semester }}</option>
+            }
+          </select>
+        </label>
+
+        <label class="field">
+          <span>Jour de seance</span>
+          <select formControlName="sessionDay">
+            @for (day of sessionDayOptions; track day) {
+              <option [value]="day">{{ day }}</option>
+            }
+          </select>
+        </label>
+
+        <label class="field">
+          <span>Annee universitaire</span>
+          <input formControlName="academicYear" />
+        </label>
+
+        <label class="field">
+          <span>Points attribues</span>
+          <input [value]="pointsForDay(createForm.controls.sessionDay.value)" type="number" readonly />
+        </label>
+
+        <div class="detail-actions full-width">
+          <button class="primary-button" type="submit" [disabled]="saving()">
+            {{ saving() ? 'Enregistrement...' : 'Enregistrer la surveillance' }}
+          </button>
+          <button class="ghost-button" type="button" (click)="goToListPage()">Annuler</button>
+        </div>
+      </form>
+    </section>
+  } @else {
+    @if (summary(); as summaryValue) {
+      <section class="panel">
+        <p class="eyebrow">Resume</p>
+        <div class="metric-grid">
+          <article class="metric-card accent-card">
+            <span>Total surveillances</span>
+            <strong>{{ summaryValue.totalSurveillanceActivities }}</strong>
+          </article>
+          <article class="metric-card">
+            <span>Total points</span>
+            <strong>{{ summaryValue.totalPoints | number: '1.0-2' }}</strong>
+          </article>
+          <article class="metric-card">
+            <span>Sessions S1</span>
+            <strong>{{ summaryValue.totalSemesterS1 }}</strong>
+          </article>
+          <article class="metric-card">
+            <span>Sessions S2</span>
+            <strong>{{ summaryValue.totalSemesterS2 }}</strong>
+          </article>
+          <article class="metric-card">
+            <span>Sessions annuelles</span>
+            <strong>{{ summaryValue.totalAnnualSessions }}</strong>
+          </article>
+        </div>
+      </section>
+    }
+
+    @if (showActivityDashboard()) {
+      <section class="panel activity-dashboard-panel">
+        <div class="activity-dashboard-head">
+          <div>
+            <p class="eyebrow">Dashboard activite</p>
+            <h2 class="section-title">Equilibre groupes / surveillances et comparaison moyenne collegues</h2>
+            <p class="activity-dashboard-subtitle">Annee universitaire {{ dashboardPeriodLabel() }}</p>
+          </div>
+          <span class="activity-dashboard-year">Surveillance</span>
+        </div>
+
+        @if (dashboardInsightsError()) {
+          <p class="activity-dashboard-note activity-dashboard-note--error">{{ dashboardInsightsError() }}</p>
+        } @else if (dashboardInsightsLoading()) {
+          <p class="activity-dashboard-note">Chargement du dashboard surveillance...</p>
+        } @else {
+          <p class="activity-dashboard-note" [class.activity-dashboard-note--warning]="surveillanceBalanceGap() > 0">
+            {{ surveillanceDashboardNote() }} Couverture actuelle: {{ surveillanceGaugePercent() }}%.
+          </p>
+        }
+
+        <div class="activity-dashboard-grid">
+          <app-chart-panel
+            title="Jauge d'equilibre"
+            [subtitle]="surveillanceGaugeSubtitle()"
+            type="doughnut"
+            [data]="surveillanceGaugeChartData()"
+            [height]="280"
+            [legend]="false"
+          ></app-chart-panel>
+
+          <app-chart-panel
+            title="Surveillances par session"
+            subtitle="Distribution des surveillances declarees par session."
+            type="bar"
+            [data]="surveillanceBySessionChartData()"
+            [height]="280"
+          ></app-chart-panel>
+
+          <app-chart-panel
+            title="Evolution annuelle surveillance"
+            [subtitle]="surveillanceTrendSubtitle()"
+            type="line"
+            [data]="surveillanceTrendChartData()"
+            [height]="280"
+            [legend]="false"
+          ></app-chart-panel>
+        </div>
+      </section>
+    }
+
+    <section class="panel">
+      <p class="eyebrow">Filtres</p>
+      <div class="filter-grid">
+        <label class="field">
+          <span>Recherche</span>
+          <input
+            [value]="searchTerm()"
+            (input)="updateSearchTerm($any($event.target).value)"
+            placeholder="Session, enseignant, annee"
+          />
+        </label>
+
+        <label class="field">
+          <span>Semestre</span>
+          <select [value]="semesterFilter()" (change)="updateSemesterFilter($any($event.target).value)">
+            @for (semester of semesterFilters; track semester) {
+              <option [value]="semester">{{ semester }}</option>
+            }
+          </select>
+        </label>
+      </div>
+
+      <div class="metric-grid compact-metrics">
+        <article class="metric-card">
+          <span>Resultats visibles</span>
+          <strong>{{ displayedActivities().length }}</strong>
+        </article>
+        <article class="metric-card">
+          <span>Points visibles</span>
+          <strong>{{ visiblePoints() | number: '1.0-2' }}</strong>
+        </article>
+        <article class="metric-card">
+          <span>Sessions annuelles visibles</span>
+          <strong>{{ visibleAnnualCount() }}</strong>
+        </article>
+      </div>
+    </section>
+
+    <section class="panel">
+      <div class="history-header">
+        <div class="history-header-copy">
+          <p class="eyebrow">Historique</p>
+          <h2 class="section-title">Liste des surveillances</h2>
+        </div>
+
+        @if (hasHistoryToggle()) {
+          <button
+            class="ghost-button icon-only-button history-toggle-button"
+            [class.is-expanded]="showFullHistory()"
+            type="button"
+            (click)="toggleHistoryVisibility()"
+            [title]="historyToggleLabel()"
+            [attr.aria-label]="historyToggleLabel()"
+          ></button>
+        }
+      </div>
+
+      <div class="table-wrapper">
+        <table class="data-table exam-surveillance-table">
+          <thead>
+            <tr>
+              <th scope="col" class="col-session">Session</th>
+              <th scope="col" class="col-semester">Semestre</th>
+              <th scope="col" class="col-day">Jour</th>
+              <th scope="col" class="col-points">Points</th>
+              <th scope="col" class="col-status">Statut</th>
+              <th scope="col" class="col-teacher">Enseignant</th>
+              <th scope="col" class="col-actions">Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (activity of displayedActivities(); track activity.id) {
+              <tr>
+                <td class="col-session">
+                  <strong>{{ activity.sessionName }}</strong>
+                  <div class="table-meta">{{ activity.academicYear }}</div>
+                </td>
+                <td class="col-semester">{{ activity.semester }}</td>
+                <td class="col-day">{{ activity.sessionDay }}</td>
+                <td class="col-points">{{ activity.sessionPoints | number: '1.0-2' }}</td>
+                <td class="col-status">{{ activity.status }}</td>
+                <td class="col-teacher">{{ activity.teacherName }}</td>
+                <td class="action-cell col-actions">
+                  <div class="exam-surveillance-actions">
+                    <button
+                      class="link-button detail-link icon-only-button icon-view"
+                      type="button"
+                      (click)="selectActivity(activity)"
+                      title="Voir les details"
+                      aria-label="Voir les details"
+                    ></button>
+                    @if (canManage(activity)) {
+                      @if (canSubmit(activity)) {
+                        <button
+                          class="link-button approve-link icon-only-button icon-submit"
+                          type="button"
+                          (click)="submitActivity(activity)"
+                          title="Soumettre"
+                          aria-label="Soumettre"
+                        ></button>
+                      }
+                      <button
+                        class="link-button edit-link icon-only-button icon-edit"
+                        type="button"
+                        (click)="startEditing(activity)"
+                        title="Modifier"
+                        aria-label="Modifier"
+                      ></button>
+                      <button
+                        class="link-button danger-link icon-only-button icon-delete"
+                        type="button"
+                        (click)="deleteExamSurveillance(activity)"
+                        title="Supprimer"
+                        aria-label="Supprimer"
+                      ></button>
+                    }
+                  </div>
+                </td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    @if (selectedActivity(); as activity) {
+      <section #detailSection class="detail-layout single-panel">
+        <div class="panel detail-panel">
+          <div class="detail-header">
+            <div class="detail-header-copy">
+              <p class="eyebrow">Fiche detail</p>
+              <h2 class="section-title">
+                {{ editingActivityId() === activity.id ? 'Modifier la surveillance' : activity.sessionName }}
+              </h2>
+            </div>
+
+            @if (canManage(activity) && editingActivityId() !== activity.id) {
+              <button
+                class="ghost-button detail-edit-button icon-only-button icon-edit"
+                type="button"
+                (click)="startEditing(activity)"
+                title="Modifier"
+                aria-label="Modifier"
+              ></button>
+            }
+          </div>
+
+          @if (editingActivityId() === activity.id) {
+            <form class="form-grid" [formGroup]="editForm" (ngSubmit)="saveEdit()">
+              <label class="field full-width">
+                <span>Session</span>
+                <select formControlName="sessionName">
+                  @if (!isKnownSessionName(editForm.controls.sessionName.value)) {
+                    <option [value]="editForm.controls.sessionName.value">{{ editForm.controls.sessionName.value }}</option>
+                  }
+                  @for (sessionName of sessionNameOptions; track sessionName) {
+                    <option [value]="sessionName">{{ sessionName }}</option>
+                  }
+                </select>
+              </label>
+
+              <label class="field">
+                <span>Semestre</span>
+                <select formControlName="semester">
+                  @for (semester of semesterOptions; track semester) {
+                    <option [value]="semester">{{ semester }}</option>
+                  }
+                </select>
+              </label>
+
+              <label class="field">
+                <span>Jour de seance</span>
+                <select formControlName="sessionDay">
+                  @for (day of sessionDayOptions; track day) {
+                    <option [value]="day">{{ day }}</option>
+                  }
+                </select>
+              </label>
+
+              <label class="field">
+                <span>Annee universitaire</span>
+                <input formControlName="academicYear" />
+              </label>
+
+              <label class="field">
+                <span>Points attribues</span>
+                <input [value]="pointsForDay(editForm.controls.sessionDay.value)" type="number" readonly />
+              </label>
+
+              <div class="detail-actions full-width">
+                <button class="primary-button" type="submit" [disabled]="saving()">
+                  {{ saving() ? 'Enregistrement...' : 'Enregistrer les modifications' }}
+                </button>
+                <button class="ghost-button" type="button" (click)="cancelEditing()">Annuler</button>
+              </div>
+            </form>
+          } @else {
+            <div class="detail-grid">
+              <div>
+                <span class="detail-label">Session</span>
+                <strong>{{ activity.sessionName }}</strong>
+              </div>
+              <div>
+                <span class="detail-label">Semestre</span>
+                <strong>{{ activity.semester }}</strong>
+              </div>
+              <div>
+                <span class="detail-label">Jour</span>
+                <strong>{{ activity.sessionDay }}</strong>
+              </div>
+              <div>
+                <span class="detail-label">Points</span>
+                <strong>{{ activity.sessionPoints | number: '1.0-2' }}</strong>
+              </div>
+              <div>
+                <span class="detail-label">Statut</span>
+                <strong>{{ activity.status }}</strong>
+              </div>
+              <div>
+                <span class="detail-label">Enseignant</span>
+                <strong>{{ activity.teacherName }}</strong>
+              </div>
+              <div>
+                <span class="detail-label">Annee universitaire</span>
+                <strong>{{ activity.academicYear }}</strong>
+              </div>
+            </div>
+          }
+        </div>
+      </section>
+    }
+  }
+</div>
