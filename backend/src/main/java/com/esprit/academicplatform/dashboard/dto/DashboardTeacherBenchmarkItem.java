@@ -18,6 +18,9 @@ public record DashboardTeacherBenchmarkItem(
     long totalRejectedActivities,
     BigDecimal totalCompletedHours,
     BigDecimal totalTeachingPerformancePoints,
-    BigDecimal validationRatePercent
+    BigDecimal validationRatePercent,
+    BigDecimal totalPromotionPoints,
+    BigDecimal calculatedPrime,
+    BigDecimal calculatedWeight
 ) {
 }

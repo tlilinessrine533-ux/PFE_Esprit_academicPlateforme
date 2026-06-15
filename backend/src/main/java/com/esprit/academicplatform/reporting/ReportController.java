@@ -1,6 +1,8 @@
 package com.esprit.academicplatform.reporting;
 
+import com.esprit.academicplatform.reporting.dto.GenerateIndividualReportRequest;
 import com.esprit.academicplatform.reporting.dto.ReportResponse;
+import jakarta.validation.Valid;
 import java.security.Principal;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
@@ -12,6 +14,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
@@ -28,21 +31,26 @@ public class ReportController {
         return reportService.getAccessibleReports(principal.getName());
     }
 
+    @GetMapping("/individual/academic-years")
+    public List<String> getIndividualAcademicYears(Principal principal) {
+        return reportService.getIndividualAcademicYears(principal.getName());
+    }
+
     @PostMapping("/individual/pdf")
     public ResponseEntity<Resource> generateIndividualPdf(
-        @RequestParam String periodLabel,
+        @Valid @RequestBody GenerateIndividualReportRequest request,
         Principal principal
     ) {
-        ReportService.GeneratedReport report = reportService.generateIndividualPdf(periodLabel, principal.getName());
+        ReportService.GeneratedReport report = reportService.generateIndividualPdf(request, principal.getName());
         return buildDownloadResponse(report);
     }
 
     @PostMapping("/individual/excel")
     public ResponseEntity<Resource> generateIndividualExcel(
-        @RequestParam String periodLabel,
+        @Valid @RequestBody GenerateIndividualReportRequest request,
         Principal principal
     ) {
-        ReportService.GeneratedReport report = reportService.generateIndividualExcel(periodLabel, principal.getName());
+        ReportService.GeneratedReport report = reportService.generateIndividualExcel(request, principal.getName());
         return buildDownloadResponse(report);
     }
 

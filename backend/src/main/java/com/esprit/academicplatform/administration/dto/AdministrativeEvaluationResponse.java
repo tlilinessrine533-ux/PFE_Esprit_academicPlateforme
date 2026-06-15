@@ -12,6 +12,7 @@ public record AdministrativeEvaluationResponse(
     BigDecimal validatedTeachingPoints,
     int absenceDays,
     BigDecimal activityTypePoints,
+    BigDecimal calculatedWeight,
     BigDecimal calculatedBonus,
     BigDecimal calculatedPromotionPoints,
     String decisionStatus,
@@ -20,4 +21,3 @@ public record AdministrativeEvaluationResponse(
     LocalDateTime decidedAt
 ) {
 }
-

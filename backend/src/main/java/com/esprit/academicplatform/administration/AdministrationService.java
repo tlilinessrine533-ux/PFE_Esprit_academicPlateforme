@@ -33,6 +33,8 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
+import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
@@ -44,8 +46,9 @@ import org.springframework.web.server.ResponseStatusException;
 @RequiredArgsConstructor
 public class AdministrationService {
 
-    private static final String KEY_BONUS_BASE_AMOUNT = "bonus.base.amount";
-    private static final String KEY_BONUS_AMOUNT_PER_POINT = "bonus.amount.per.point";
+    private static final String KEY_REFERENCE_POINTS = "prime.reference.points";
+    private static final String LEGACY_KEY_BONUS_BASE_AMOUNT = "bonus.base.amount";
+    private static final String KEY_TOTAL_PRIME_AMOUNT = "prime.total.amount";
     private static final String KEY_BONUS_ABSENCE_PENALTY_PER_DAY = "bonus.absence.penalty.per.day";
     private static final String KEY_PROMOTION_TEACHING_POINT_FACTOR = "promotion.teaching.point.factor";
     private static final String KEY_POINTS_TEACHING = "points.teaching";
@@ -54,10 +57,9 @@ public class AdministrationService {
     private static final String KEY_POINTS_EVENT = "points.event";
     private static final String KEY_POINTS_EXAM_SURVEILLANCE = "points.exam.surveillance";
     private static final String KEY_POINTS_RESPONSIBILITY = "points.responsibility";
-    private static final String KEY_POINTS_AVAILABILITY = "points.availability";
 
-    private static final BigDecimal DEFAULT_BONUS_BASE_AMOUNT = new BigDecimal("500.00");
-    private static final BigDecimal DEFAULT_BONUS_AMOUNT_PER_POINT = new BigDecimal("10.00");
+    private static final BigDecimal DEFAULT_REFERENCE_POINTS = new BigDecimal("500.00");
+    private static final BigDecimal DEFAULT_TOTAL_PRIME_AMOUNT = new BigDecimal("0.00");
     private static final BigDecimal DEFAULT_BONUS_ABSENCE_PENALTY_PER_DAY = new BigDecimal("5.00");
     private static final BigDecimal DEFAULT_PROMOTION_TEACHING_POINT_FACTOR = new BigDecimal("0.10");
     private static final BigDecimal DEFAULT_POINTS_TEACHING = new BigDecimal("5.00");
@@ -66,7 +68,6 @@ public class AdministrationService {
     private static final BigDecimal DEFAULT_POINTS_EVENT = new BigDecimal("2.00");
     private static final BigDecimal DEFAULT_POINTS_EXAM_SURVEILLANCE = new BigDecimal("1.00");
     private static final BigDecimal DEFAULT_POINTS_RESPONSIBILITY = new BigDecimal("3.00");
-    private static final BigDecimal DEFAULT_POINTS_AVAILABILITY = new BigDecimal("1.00");
 
     private final AdministrationSettingRepository administrationSettingRepository;
     private final AdministrativeDecisionRepository administrativeDecisionRepository;
@@ -90,8 +91,9 @@ public class AdministrationService {
         User currentUser = findCurrentUser(currentUserEmail);
         requireAdministration(currentUser);
 
-        saveSetting(KEY_BONUS_BASE_AMOUNT, request.bonusBaseAmount());
-        saveSetting(KEY_BONUS_AMOUNT_PER_POINT, request.bonusAmountPerPoint());
+        saveSetting(KEY_REFERENCE_POINTS, request.referencePoints());
+        saveSetting(LEGACY_KEY_BONUS_BASE_AMOUNT, request.referencePoints());
+        saveSetting(KEY_TOTAL_PRIME_AMOUNT, request.totalPrimeAmount());
         saveSetting(KEY_BONUS_ABSENCE_PENALTY_PER_DAY, request.bonusAbsencePenaltyPerDay());
         saveSetting(KEY_PROMOTION_TEACHING_POINT_FACTOR, request.promotionTeachingPointFactor());
         saveSetting(KEY_POINTS_TEACHING, request.teachingActivityPoint());
@@ -100,7 +102,6 @@ public class AdministrationService {
         saveSetting(KEY_POINTS_EVENT, request.eventActivityPoint());
         saveSetting(KEY_POINTS_EXAM_SURVEILLANCE, request.examSurveillanceActivityPoint());
         saveSetting(KEY_POINTS_RESPONSIBILITY, request.responsibilityActivityPoint());
-        saveSetting(KEY_POINTS_AVAILABILITY, request.availabilityActivityPoint());
 
         return toConfigResponse(loadConfig());
     }
@@ -108,9 +109,34 @@ public class AdministrationService {
     @Transactional(readOnly = true)
     public List<AdministrativeEvaluationResponse> getEvaluations(String periodLabel, String currentUserEmail) {
         User currentUser = findCurrentUser(currentUserEmail);
-        requireAdministration(currentUser);
+        requireAdministrationOrDepartmentHead(currentUser);
         String resolvedPeriodLabel = resolvePeriodLabel(periodLabel);
-        return computeEvaluations(resolvedPeriodLabel);
+        List<AdministrativeEvaluationResponse> evaluations = computeEvaluations(resolvedPeriodLabel);
+
+        if (currentUser.getRole() == RoleType.CHEF_DEPARTEMENT) {
+            Long departmentId = currentUser.getDepartment() != null ? currentUser.getDepartment().getId() : null;
+            if (departmentId == null) {
+                return List.of();
+            }
+
+            Set<Long> teacherIdsInDepartment = userRepository.findByRoleInAndIsActiveTrue(
+                    List.of(RoleType.ENSEIGNANT)
+                ).stream()
+                .filter(user -> user.getDepartment() != null && Objects.equals(user.getDepartment().getId(), departmentId))
+                .map(User::getId)
+                .collect(Collectors.toSet());
+
+            return evaluations.stream()
+                .filter(item -> teacherIdsInDepartment.contains(item.teacherId()))
+                .toList();
+        }
+
+        return evaluations;
+    }
+
+    @Transactional(readOnly = true)
+    public List<AdministrativeEvaluationResponse> computeEvaluationsForPeriod(String periodLabel) {
+        return computeEvaluations(resolvePeriodLabel(periodLabel));
     }
 
     @Transactional
@@ -133,7 +159,7 @@ public class AdministrationService {
         User teacher = userRepository.findById(teacherId)
             .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Enseignant introuvable"));
 
-        if (teacher.getRole() != RoleType.ENSEIGNANT && teacher.getRole() != RoleType.CHEF_DEPARTEMENT) {
+        if (teacher.getRole() != RoleType.ENSEIGNANT) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "L'utilisateur selectionne n'est pas un enseignant.");
         }
 
@@ -209,7 +235,7 @@ public class AdministrationService {
     }
 
     private List<AdministrativeEvaluationResponse> computeEvaluations(String periodLabel) {
-        List<User> teachers = userRepository.findByRoleInAndIsActiveTrue(List.of(RoleType.ENSEIGNANT, RoleType.CHEF_DEPARTEMENT))
+        List<User> teachers = userRepository.findByRoleInAndIsActiveTrue(List.of(RoleType.ENSEIGNANT))
             .stream()
             .sorted(Comparator.comparing(this::displayName))
             .toList();
@@ -243,15 +269,30 @@ public class AdministrationService {
 
         Map<Long, Integer> absenceDaysByTeacher = buildValidatedAbsenceDaysByTeacher(periodLabel);
         Map<Long, AdministrativeDecision> latestDecisionByTeacher = latestDecisionsByTeacher(periodLabel);
+        Map<Long, TeacherComputation> computationsByTeacherId = new LinkedHashMap<>();
+        BigDecimal totalWeight = zeroWeight();
 
-        List<AdministrativeEvaluationResponse> evaluations = new ArrayList<>();
         for (User teacher : teachers) {
             TeacherComputation computation = computeTeacherMetrics(
                 activitiesByTeacher.getOrDefault(teacher.getId(), List.of()),
                 absenceDaysByTeacher.getOrDefault(teacher.getId(), 0),
                 config
             );
+            computationsByTeacherId.put(teacher.getId(), computation);
+            totalWeight = totalWeight.add(computation.calculatedWeight());
+        }
+
+        BigDecimal resolvedTotalWeight = scaledWeight(totalWeight);
+
+        List<AdministrativeEvaluationResponse> evaluations = new ArrayList<>();
+        for (User teacher : teachers) {
+            TeacherComputation computation = computationsByTeacherId.get(teacher.getId());
             AdministrativeDecision latestDecision = latestDecisionByTeacher.get(teacher.getId());
+            BigDecimal calculatedPrime = calculatePrimeAmount(
+                computation.calculatedWeight(),
+                resolvedTotalWeight,
+                config.totalPrimeAmount()
+            );
 
             evaluations.add(new AdministrativeEvaluationResponse(
                 teacher.getId(),
@@ -262,7 +303,8 @@ public class AdministrationService {
                 computation.validatedTeachingPoints(),
                 computation.absenceDays(),
                 computation.activityTypePoints(),
-                computation.calculatedBonus(),
+                computation.calculatedWeight(),
+                calculatedPrime,
                 computation.calculatedPromotionPoints(),
                 latestDecision != null ? latestDecision.getDecisionStatus() : "EN_ATTENTE",
                 latestDecision != null ? latestDecision.getDecisionComment() : null,
@@ -288,7 +330,6 @@ public class AdministrationService {
         long eventCount = 0;
         long examCount = 0;
         long responsibilityCount = 0;
-        long availabilityCount = 0;
         BigDecimal validatedTeachingPoints = zero();
 
         for (Activity activity : validatedActivities) {
@@ -317,10 +358,6 @@ public class AdministrationService {
             }
             if (activity instanceof ResponsibilityActivity) {
                 responsibilityCount += 1;
-                continue;
-            }
-            if (activity instanceof AvailabilityRequestActivity) {
-                availabilityCount += 1;
             }
         }
 
@@ -331,28 +368,23 @@ public class AdministrationService {
                 .add(config.eventActivityPoint().multiply(BigDecimal.valueOf(eventCount)))
                 .add(config.examSurveillanceActivityPoint().multiply(BigDecimal.valueOf(examCount)))
                 .add(config.responsibilityActivityPoint().multiply(BigDecimal.valueOf(responsibilityCount)))
-                .add(config.availabilityActivityPoint().multiply(BigDecimal.valueOf(availabilityCount)))
         );
 
-        BigDecimal promotionPoints = scaled(
+        BigDecimal promotionPointsBeforePenalty = scaled(
             activityTypePoints.add(validatedTeachingPoints.multiply(config.promotionTeachingPointFactor()))
         );
-
-        BigDecimal calculatedBonus = scaled(
-            config.bonusBaseAmount()
-                .add(promotionPoints.multiply(config.bonusAmountPerPoint()))
+        BigDecimal promotionPoints = scaled(
+            promotionPointsBeforePenalty
                 .subtract(config.bonusAbsencePenaltyPerDay().multiply(BigDecimal.valueOf(validatedAbsenceDays)))
         );
-        if (calculatedBonus.signum() < 0) {
-            calculatedBonus = zero();
-        }
+        BigDecimal calculatedWeight = calculateWeight(promotionPoints, config.referencePoints());
 
         return new TeacherComputation(
             validatedActivities.size(),
             scaled(validatedTeachingPoints),
             validatedAbsenceDays,
             activityTypePoints,
-            calculatedBonus,
+            calculatedWeight,
             promotionPoints
         );
     }
@@ -395,8 +427,7 @@ public class AdministrationService {
 
     private AdministrationConfigResponse toConfigResponse(AdminConfig config) {
         return new AdministrationConfigResponse(
-            config.bonusBaseAmount(),
-            config.bonusAmountPerPoint(),
+            config.referencePoints(),
             config.bonusAbsencePenaltyPerDay(),
             config.promotionTeachingPointFactor(),
             config.teachingActivityPoint(),
@@ -405,7 +436,7 @@ public class AdministrationService {
             config.eventActivityPoint(),
             config.examSurveillanceActivityPoint(),
             config.responsibilityActivityPoint(),
-            config.availabilityActivityPoint()
+            config.totalPrimeAmount()
         );
     }
 
@@ -440,8 +471,8 @@ public class AdministrationService {
         }
 
         return new AdminConfig(
-            readDecimal(valuesByKey, KEY_BONUS_BASE_AMOUNT, DEFAULT_BONUS_BASE_AMOUNT),
-            readDecimal(valuesByKey, KEY_BONUS_AMOUNT_PER_POINT, DEFAULT_BONUS_AMOUNT_PER_POINT),
+            readDecimalWithFallback(valuesByKey, KEY_REFERENCE_POINTS, LEGACY_KEY_BONUS_BASE_AMOUNT, DEFAULT_REFERENCE_POINTS),
+            readDecimal(valuesByKey, KEY_TOTAL_PRIME_AMOUNT, DEFAULT_TOTAL_PRIME_AMOUNT),
             readDecimal(valuesByKey, KEY_BONUS_ABSENCE_PENALTY_PER_DAY, DEFAULT_BONUS_ABSENCE_PENALTY_PER_DAY),
             readDecimal(valuesByKey, KEY_PROMOTION_TEACHING_POINT_FACTOR, DEFAULT_PROMOTION_TEACHING_POINT_FACTOR),
             readDecimal(valuesByKey, KEY_POINTS_TEACHING, DEFAULT_POINTS_TEACHING),
@@ -449,8 +480,7 @@ public class AdministrationService {
             readDecimal(valuesByKey, KEY_POINTS_RESEARCH, DEFAULT_POINTS_RESEARCH),
             readDecimal(valuesByKey, KEY_POINTS_EVENT, DEFAULT_POINTS_EVENT),
             readDecimal(valuesByKey, KEY_POINTS_EXAM_SURVEILLANCE, DEFAULT_POINTS_EXAM_SURVEILLANCE),
-            readDecimal(valuesByKey, KEY_POINTS_RESPONSIBILITY, DEFAULT_POINTS_RESPONSIBILITY),
-            readDecimal(valuesByKey, KEY_POINTS_AVAILABILITY, DEFAULT_POINTS_AVAILABILITY)
+            readDecimal(valuesByKey, KEY_POINTS_RESPONSIBILITY, DEFAULT_POINTS_RESPONSIBILITY)
         );
     }
 
@@ -471,6 +501,27 @@ public class AdministrationService {
             return scaled(new BigDecimal(raw.trim()));
         } catch (NumberFormatException exception) {
             return fallback;
+        }
+    }
+
+    private BigDecimal readDecimalWithFallback(
+        Map<String, String> valuesByKey,
+        String key,
+        String fallbackKey,
+        BigDecimal fallbackValue
+    ) {
+        String raw = valuesByKey.get(key);
+        if (!StringUtils.hasText(raw)) {
+            raw = valuesByKey.get(fallbackKey);
+        }
+        if (!StringUtils.hasText(raw)) {
+            return fallbackValue;
+        }
+
+        try {
+            return scaled(new BigDecimal(raw.trim()));
+        } catch (NumberFormatException exception) {
+            return fallbackValue;
         }
     }
 
@@ -534,6 +585,13 @@ public class AdministrationService {
         }
     }
 
+    private void requireAdministrationOrDepartmentHead(User currentUser) {
+        if (currentUser.getRole() == RoleType.ADMINISTRATION || currentUser.getRole() == RoleType.CHEF_DEPARTEMENT) {
+            return;
+        }
+        throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Acces reserve a l'administration et au chef de departement.");
+    }
+
     private String resolvePeriodLabel(String requestedPeriodLabel) {
         if (StringUtils.hasText(requestedPeriodLabel)) {
             return requestedPeriodLabel.trim();
@@ -569,8 +627,50 @@ public class AdministrationService {
         return value.setScale(2, RoundingMode.HALF_UP);
     }
 
+    private BigDecimal scaledWeight(BigDecimal value) {
+        if (value == null) {
+            return zeroWeight();
+        }
+        return value.setScale(6, RoundingMode.HALF_UP);
+    }
+
     private BigDecimal zero() {
         return BigDecimal.ZERO.setScale(2, RoundingMode.HALF_UP);
+    }
+
+    private BigDecimal zeroWeight() {
+        return BigDecimal.ZERO.setScale(6, RoundingMode.HALF_UP);
+    }
+
+    private BigDecimal calculateWeight(BigDecimal totalPoints, BigDecimal referencePoints) {
+        BigDecimal resolvedReferencePoints = nullSafe(referencePoints);
+        if (resolvedReferencePoints.signum() <= 0) {
+            return zeroWeight();
+        }
+
+        BigDecimal resolvedTotalPoints = nullSafe(totalPoints);
+        if (resolvedTotalPoints.compareTo(resolvedReferencePoints) <= 0) {
+            return zeroWeight();
+        }
+
+        return scaledWeight(
+            resolvedTotalPoints.subtract(resolvedReferencePoints)
+                .divide(resolvedReferencePoints, 8, RoundingMode.HALF_UP)
+        );
+    }
+
+    private BigDecimal calculatePrimeAmount(BigDecimal weight, BigDecimal totalWeight, BigDecimal totalPrimeAmount) {
+        BigDecimal resolvedTotalWeight = scaledWeight(totalWeight);
+        if (resolvedTotalWeight.signum() == 0) {
+            return zero();
+        }
+
+        BigDecimal resolvedWeight = scaledWeight(weight);
+        BigDecimal resolvedTotalPrimeAmount = scaled(totalPrimeAmount);
+        return scaled(
+            resolvedTotalPrimeAmount.multiply(resolvedWeight)
+                .divide(resolvedTotalWeight, 8, RoundingMode.HALF_UP)
+        );
     }
 
     private BigDecimal nullSafe(BigDecimal value) {
@@ -578,8 +678,8 @@ public class AdministrationService {
     }
 
     private record AdminConfig(
-        BigDecimal bonusBaseAmount,
-        BigDecimal bonusAmountPerPoint,
+        BigDecimal referencePoints,
+        BigDecimal totalPrimeAmount,
         BigDecimal bonusAbsencePenaltyPerDay,
         BigDecimal promotionTeachingPointFactor,
         BigDecimal teachingActivityPoint,
@@ -587,8 +687,7 @@ public class AdministrationService {
         BigDecimal researchActivityPoint,
         BigDecimal eventActivityPoint,
         BigDecimal examSurveillanceActivityPoint,
-        BigDecimal responsibilityActivityPoint,
-        BigDecimal availabilityActivityPoint
+        BigDecimal responsibilityActivityPoint
     ) {
     }
 
@@ -597,7 +696,7 @@ public class AdministrationService {
         BigDecimal validatedTeachingPoints,
         int absenceDays,
         BigDecimal activityTypePoints,
-        BigDecimal calculatedBonus,
+        BigDecimal calculatedWeight,
         BigDecimal calculatedPromotionPoints
     ) {
     }
@@ -647,4 +746,3 @@ public class AdministrationService {
         }
     }
 }
-

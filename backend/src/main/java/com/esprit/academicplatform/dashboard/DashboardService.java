@@ -16,9 +16,9 @@ import com.esprit.academicplatform.activity.SupervisionActivityRepository;
 import com.esprit.academicplatform.activity.TeachingActivity;
 import com.esprit.academicplatform.activity.TeachingActivityRepository;
 import com.esprit.academicplatform.activity.TeachingPerformanceCalculator;
-import com.esprit.academicplatform.administration.AdministrationSetting;
+import com.esprit.academicplatform.administration.AdministrationService;
 import com.esprit.academicplatform.administration.AdministrationSettingRepository;
-import com.esprit.academicplatform.administration.AdministrativeDecisionRepository;
+import com.esprit.academicplatform.administration.dto.AdministrativeEvaluationResponse;
 import com.esprit.academicplatform.auth.AuthSecurityState;
 import com.esprit.academicplatform.auth.AuthSecurityStateRepository;
 import com.esprit.academicplatform.common.enums.ActivityStatus;
@@ -76,27 +76,6 @@ public class DashboardService {
 
     private static final Logger log = LoggerFactory.getLogger(DashboardService.class);
     private static final DateTimeFormatter MONTH_LABEL_FORMATTER = DateTimeFormatter.ofPattern("MM/yyyy", Locale.ROOT);
-    private static final String KEY_BONUS_BASE_AMOUNT = "bonus.base.amount";
-    private static final String KEY_BONUS_AMOUNT_PER_POINT = "bonus.amount.per.point";
-    private static final String KEY_BONUS_ABSENCE_PENALTY_PER_DAY = "bonus.absence.penalty.per.day";
-    private static final String KEY_POINTS_TEACHING = "points.teaching";
-    private static final String KEY_POINTS_SUPERVISION = "points.supervision";
-    private static final String KEY_POINTS_RESEARCH = "points.research";
-    private static final String KEY_POINTS_EVENT = "points.event";
-    private static final String KEY_POINTS_EXAM_SURVEILLANCE = "points.exam.surveillance";
-    private static final String KEY_POINTS_RESPONSIBILITY = "points.responsibility";
-    private static final String KEY_POINTS_AVAILABILITY = "points.availability";
-
-    private static final BigDecimal DEFAULT_BONUS_BASE_AMOUNT = new BigDecimal("500.00");
-    private static final BigDecimal DEFAULT_BONUS_AMOUNT_PER_POINT = new BigDecimal("10.00");
-    private static final BigDecimal DEFAULT_BONUS_ABSENCE_PENALTY_PER_DAY = new BigDecimal("5.00");
-    private static final BigDecimal DEFAULT_POINTS_TEACHING = new BigDecimal("5.00");
-    private static final BigDecimal DEFAULT_POINTS_SUPERVISION = new BigDecimal("3.00");
-    private static final BigDecimal DEFAULT_POINTS_RESEARCH = new BigDecimal("4.00");
-    private static final BigDecimal DEFAULT_POINTS_EVENT = new BigDecimal("2.00");
-    private static final BigDecimal DEFAULT_POINTS_EXAM_SURVEILLANCE = new BigDecimal("1.00");
-    private static final BigDecimal DEFAULT_POINTS_RESPONSIBILITY = new BigDecimal("3.00");
-    private static final BigDecimal DEFAULT_POINTS_AVAILABILITY = new BigDecimal("1.00");
 
     private final UserRepository userRepository;
     private final DepartmentRepository departmentRepository;
@@ -108,8 +87,8 @@ public class DashboardService {
     private final ExamSurveillanceActivityRepository examSurveillanceActivityRepository;
     private final ResponsibilityActivityRepository responsibilityActivityRepository;
     private final AvailabilityRequestActivityRepository availabilityRequestActivityRepository;
-    private final AdministrativeDecisionRepository administrativeDecisionRepository;
     private final AdministrationSettingRepository administrationSettingRepository;
+    private final AdministrationService administrationService;
     private final AuthSecurityStateRepository authSecurityStateRepository;
     private final ReportRepository reportRepository;
 
@@ -170,7 +149,7 @@ public class DashboardService {
             .map(item -> nullSafe(item.getCompletedHours()))
             .reduce(BigDecimal.ZERO, BigDecimal::add);
         BigDecimal totalTeachingPerformancePoints = teachings.stream()
-            .map(this::calculateDeclaredPointsSafely)
+            .map(this::calculateApprovedPointsSafely)
             .reduce(BigDecimal.ZERO, BigDecimal::add);
 
         TeacherPointsComparisonStats teacherPointsComparison = safeTeacherPointsComparison(resolvedPeriodLabel);
@@ -302,29 +281,24 @@ public class DashboardService {
         long totalDeclaredActivities = totalSubmittedActivities + totalValidatedActivities + totalRejectedActivities;
         BigDecimal validationRatePercent = percentage(totalValidatedActivities, totalDeclaredActivities);
         Map<Long, Integer> validatedAbsenceDaysByTeacher = buildValidatedAbsenceDaysByTeacher(resolvedPeriodLabel);
-        int absenceDays = validatedAbsenceDaysByTeacher.getOrDefault(currentUser.getId(), 0);
-        DashboardBonusConfig bonusConfig = loadDashboardBonusConfig();
-        BigDecimal totalAccumulatedPoints = calculateAccumulatedPoints(
-            totalTeachingPerformancePoints,
-            teachings.size(),
-            supervisions.size(),
-            researches.size(),
-            events.size(),
-            surveillances.size(),
-            responsibilities.size(),
-            countValidatedAvailabilityRequests(availabilityRequests),
-            bonusConfig
+        List<AdministrativeEvaluationResponse> evaluations = safeList(
+            () -> administrationService.computeEvaluationsForPeriod(resolvedPeriodLabel),
+            "administrative-evaluations-for-dashboard"
         );
-        BigDecimal estimatedBonus = estimateBonus(totalAccumulatedPoints, absenceDays, bonusConfig);
-        AdministrativeDecisionSnapshot decisionSnapshot = resolveLatestAdministrativeDecisionSnapshot(
-            currentUser.getId(),
-            resolvedPeriodLabel
-        );
-        if (decisionSnapshot != null) {
-            absenceDays = decisionSnapshot.absenceDays();
-            totalAccumulatedPoints = decisionSnapshot.totalAccumulatedPoints();
-            estimatedBonus = decisionSnapshot.calculatedBonus();
-        }
+        Map<Long, AdministrativeEvaluationResponse> evaluationByTeacherId = evaluations.stream()
+            .filter(item -> item != null && item.teacherId() != null)
+            .collect(Collectors.toMap(AdministrativeEvaluationResponse::teacherId, item -> item, (left, right) -> right));
+        AdministrativeEvaluationResponse personalEvaluation = evaluationByTeacherId.get(currentUser.getId());
+
+        int absenceDays = personalEvaluation != null
+            ? Math.max(0, personalEvaluation.absenceDays())
+            : validatedAbsenceDaysByTeacher.getOrDefault(currentUser.getId(), 0);
+        BigDecimal totalAccumulatedPoints = personalEvaluation != null
+            ? scaled(personalEvaluation.calculatedPromotionPoints())
+            : scaled(totalTeachingPerformancePoints);
+        BigDecimal estimatedBonus = personalEvaluation != null
+            ? scaled(personalEvaluation.calculatedBonus())
+            : zero();
         DepartmentRanking departmentRanking = calculateDepartmentRankingPosition(
             currentUser,
             resolvedPeriodLabel,
@@ -513,6 +487,12 @@ public class DashboardService {
             surveillances,
             responsibilities
         );
+        Map<Long, AdministrativeEvaluationResponse> evaluationByTeacherId = safeList(
+            () -> administrationService.computeEvaluationsForPeriod(resolvedPeriodLabel),
+            "administrative-evaluations-for-department-dashboard"
+        ).stream()
+            .filter(item -> item != null && item.teacherId() != null)
+            .collect(Collectors.toMap(AdministrativeEvaluationResponse::teacherId, item -> item, (left, right) -> right));
         List<DashboardTeacherBenchmarkItem> teacherBenchmark = buildTeacherBenchmark(
             resolvedDepartmentId,
             teachings,
@@ -520,7 +500,8 @@ public class DashboardService {
             researches,
             events,
             surveillances,
-            responsibilities
+            responsibilities,
+            evaluationByTeacherId
         );
         long totalPendingActivities = countPendingActivities(
             teachings,
@@ -541,9 +522,12 @@ public class DashboardService {
             responsibilities
         );
         long totalTeachers = departmentUsers.stream().filter(user -> user.getRole() == RoleType.ENSEIGNANT).count();
+        BigDecimal totalBonusPoints = teacherBenchmark.stream()
+            .map(DashboardTeacherBenchmarkItem::totalPromotionPoints)
+            .reduce(BigDecimal.ZERO, BigDecimal::add);
         BigDecimal averagePointsPerTeacher = totalTeachers <= 0
             ? zero()
-            : scaled(totalTeachingPerformancePoints.divide(BigDecimal.valueOf(totalTeachers), 2, RoundingMode.HALF_UP));
+            : scaled(totalBonusPoints.divide(BigDecimal.valueOf(totalTeachers), 2, RoundingMode.HALF_UP));
         BigDecimal bestTeacherScore = teacherBenchmark.stream()
             .map(DashboardTeacherBenchmarkItem::totalTeachingPerformancePoints)
             .reduce(BigDecimal.ZERO, BigDecimal::max);
@@ -984,9 +968,10 @@ public class DashboardService {
         List<ResearchActivity> researches,
         List<EventActivity> events,
         List<ExamSurveillanceActivity> surveillances,
-        List<ResponsibilityActivity> responsibilities
+        List<ResponsibilityActivity> responsibilities,
+        Map<Long, AdministrativeEvaluationResponse> evaluationByTeacherId
     ) {
-        List<User> teachers = userRepository.findByRoleInAndIsActiveTrue(List.of(RoleType.ENSEIGNANT, RoleType.CHEF_DEPARTEMENT))
+        List<User> teachers = userRepository.findByRoleInAndIsActiveTrue(List.of(RoleType.ENSEIGNANT))
             .stream()
             .filter(user -> isUserInDepartment(user, departmentId))
             .toList();
@@ -1036,6 +1021,12 @@ public class DashboardService {
                 BigDecimal completedHours = sumCompletedHoursByUserId(teachings, teacherId);
                 BigDecimal teachingPoints = sumApprovedPointsByUserId(teachings, teacherId);
                 BigDecimal validationRatePercent = percentage(validated, submitted + validated + rejected);
+                AdministrativeEvaluationResponse evaluation = evaluationByTeacherId.get(teacherId);
+                BigDecimal promotionPoints = evaluation != null ? scaled(evaluation.calculatedPromotionPoints()) : zero();
+                BigDecimal calculatedPrime = evaluation != null ? scaled(evaluation.calculatedBonus()) : zero();
+                BigDecimal calculatedWeight = evaluation != null
+                    ? scaledWeight(evaluation.calculatedWeight())
+                    : zeroWeight();
 
                 return new DashboardTeacherBenchmarkItem(
                     teacherId,
@@ -1053,7 +1044,10 @@ public class DashboardService {
                     rejected,
                     completedHours,
                     teachingPoints,
-                    validationRatePercent
+                    validationRatePercent,
+                    promotionPoints,
+                    calculatedPrime,
+                    calculatedWeight
                 );
             })
             .sorted(Comparator
@@ -1269,107 +1263,6 @@ public class DashboardService {
             .count();
     }
 
-    private int countValidatedAvailabilityRequests(List<AvailabilityRequestActivity> availabilityRequests) {
-        if (availabilityRequests == null || availabilityRequests.isEmpty()) {
-            return 0;
-        }
-        return (int) availabilityRequests.stream()
-            .filter(request -> request != null && isValidatedStatus(request.getStatus()))
-            .count();
-    }
-
-    private BigDecimal calculateAccumulatedPoints(
-        BigDecimal totalTeachingPoints,
-        long teachingCount,
-        long supervisionCount,
-        long researchCount,
-        long eventCount,
-        long surveillanceCount,
-        long responsibilityCount,
-        long availabilityCount,
-        DashboardBonusConfig config
-    ) {
-        BigDecimal resolvedTeachingPoints = nullSafe(totalTeachingPoints);
-        if (resolvedTeachingPoints.signum() == 0 && teachingCount > 0) {
-            resolvedTeachingPoints = config.pointsTeaching().multiply(BigDecimal.valueOf(teachingCount));
-        }
-
-        BigDecimal activityTypePoints = config.pointsSupervision().multiply(BigDecimal.valueOf(supervisionCount))
-            .add(config.pointsResearch().multiply(BigDecimal.valueOf(researchCount)))
-            .add(config.pointsEvent().multiply(BigDecimal.valueOf(eventCount)))
-            .add(config.pointsExamSurveillance().multiply(BigDecimal.valueOf(surveillanceCount)))
-            .add(config.pointsResponsibility().multiply(BigDecimal.valueOf(responsibilityCount)))
-            .add(config.pointsAvailability().multiply(BigDecimal.valueOf(availabilityCount)));
-
-        return scaled(resolvedTeachingPoints.add(activityTypePoints));
-    }
-
-    private BigDecimal estimateBonus(BigDecimal totalAccumulatedPoints, int absenceDays, DashboardBonusConfig config) {
-        BigDecimal value = config.bonusBaseAmount()
-            .add(nullSafe(totalAccumulatedPoints).multiply(config.bonusAmountPerPoint()))
-            .subtract(config.bonusAbsencePenaltyPerDay().multiply(BigDecimal.valueOf(Math.max(0, absenceDays))));
-        if (value.signum() < 0) {
-            return zero();
-        }
-        return scaled(value);
-    }
-
-    private DashboardBonusConfig loadDashboardBonusConfig() {
-        List<AdministrationSetting> settings = safeList(administrationSettingRepository::findAll, "administration-settings");
-        Map<String, String> values = settings.stream()
-            .filter(Objects::nonNull)
-            .collect(Collectors.toMap(
-                AdministrationSetting::getSettingKey,
-                AdministrationSetting::getSettingValue,
-                (left, right) -> right
-            ));
-
-        return new DashboardBonusConfig(
-            readSettingDecimal(values, KEY_BONUS_BASE_AMOUNT, DEFAULT_BONUS_BASE_AMOUNT),
-            readSettingDecimal(values, KEY_BONUS_AMOUNT_PER_POINT, DEFAULT_BONUS_AMOUNT_PER_POINT),
-            readSettingDecimal(values, KEY_BONUS_ABSENCE_PENALTY_PER_DAY, DEFAULT_BONUS_ABSENCE_PENALTY_PER_DAY),
-            readSettingDecimal(values, KEY_POINTS_TEACHING, DEFAULT_POINTS_TEACHING),
-            readSettingDecimal(values, KEY_POINTS_SUPERVISION, DEFAULT_POINTS_SUPERVISION),
-            readSettingDecimal(values, KEY_POINTS_RESEARCH, DEFAULT_POINTS_RESEARCH),
-            readSettingDecimal(values, KEY_POINTS_EVENT, DEFAULT_POINTS_EVENT),
-            readSettingDecimal(values, KEY_POINTS_EXAM_SURVEILLANCE, DEFAULT_POINTS_EXAM_SURVEILLANCE),
-            readSettingDecimal(values, KEY_POINTS_RESPONSIBILITY, DEFAULT_POINTS_RESPONSIBILITY),
-            readSettingDecimal(values, KEY_POINTS_AVAILABILITY, DEFAULT_POINTS_AVAILABILITY)
-        );
-    }
-
-    private AdministrativeDecisionSnapshot resolveLatestAdministrativeDecisionSnapshot(Long teacherId, String periodLabel) {
-        if (teacherId == null || !StringUtils.hasText(periodLabel)) {
-            return null;
-        }
-
-        try {
-            return administrativeDecisionRepository.findFirstByTeacherIdAndPeriodLabelOrderByCreatedAtDesc(teacherId, periodLabel)
-                .map(item -> new AdministrativeDecisionSnapshot(
-                    scaled(nullSafe(item.getValidatedTeachingPoints()).add(nullSafe(item.getActivityTypePoints()))),
-                    scaled(item.getCalculatedBonus()),
-                    Math.max(0, item.getAbsenceDays())
-                ))
-                .orElse(null);
-        } catch (RuntimeException exception) {
-            log.warn("Dashboard fallback activated for administrative-decision-snapshot: {}", exception.getMessage());
-            return null;
-        }
-    }
-
-    private BigDecimal readSettingDecimal(Map<String, String> values, String key, BigDecimal defaultValue) {
-        String raw = values.get(key);
-        if (!StringUtils.hasText(raw)) {
-            return defaultValue;
-        }
-
-        try {
-            return new BigDecimal(raw.trim());
-        } catch (NumberFormatException exception) {
-            return defaultValue;
-        }
-    }
-
     private DepartmentRanking calculateDepartmentRankingPosition(User currentUser, String periodLabel, BigDecimal currentPoints) {
         if (currentUser == null || currentUser.getDepartment() == null || currentUser.getDepartment().getId() == null) {
             return new DepartmentRanking(0, 0);
@@ -1404,7 +1297,7 @@ public class DashboardService {
             }
             pointsByTeacher.computeIfPresent(
                 teacherId,
-                (ignored, value) -> value.add(calculateDeclaredPointsSafely(activity))
+                (ignored, value) -> value.add(calculateApprovedPointsSafely(activity))
             );
         }
 
@@ -1861,7 +1754,7 @@ public class DashboardService {
             long totalActivities = teachingCount + supervisionCount + researchCount + eventCount + surveillanceCount + responsibilityCount;
 
             BigDecimal teachingPoints = periodTeachings.stream()
-                .map(this::calculateDeclaredPointsSafely)
+                .map(this::calculateApprovedPointsSafely)
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
 
             BigDecimal generalScore = scaled(teachingPoints.add(BigDecimal.valueOf(totalActivities)));
@@ -1986,7 +1879,7 @@ public class DashboardService {
 
             totalsByTeacher.computeIfPresent(
                 teacherId,
-                (ignored, current) -> current.add(calculateDeclaredPointsSafely(activity))
+                (ignored, current) -> current.add(calculateApprovedPointsSafely(activity))
             );
         }
 
@@ -2040,7 +1933,7 @@ public class DashboardService {
 
             totalsByTeacher.computeIfPresent(
                 teacherId,
-                (ignored, current) -> current.add(calculateDeclaredPointsSafely(activity))
+                (ignored, current) -> current.add(calculateApprovedPointsSafely(activity))
             );
         }
 
@@ -2062,20 +1955,20 @@ public class DashboardService {
         return nullSafe(value).setScale(2, RoundingMode.HALF_UP);
     }
 
+    private BigDecimal scaledWeight(BigDecimal value) {
+        return nullSafe(value).setScale(6, RoundingMode.HALF_UP);
+    }
+
     private BigDecimal zero() {
         return BigDecimal.ZERO.setScale(2, RoundingMode.HALF_UP);
     }
 
-    private BigDecimal nullSafe(BigDecimal value) {
-        return value == null ? BigDecimal.ZERO : value;
+    private BigDecimal zeroWeight() {
+        return BigDecimal.ZERO.setScale(6, RoundingMode.HALF_UP);
     }
 
-    private BigDecimal calculateDeclaredPointsSafely(TeachingActivity activity) {
-        try {
-            return nullSafe(teachingPerformanceCalculator.calculateDeclaredTotalPoints(activity));
-        } catch (RuntimeException exception) {
-            return zero();
-        }
+    private BigDecimal nullSafe(BigDecimal value) {
+        return value == null ? BigDecimal.ZERO : value;
     }
 
     private BigDecimal calculateApprovedPointsSafely(TeachingActivity activity) {
@@ -2157,30 +2050,9 @@ public class DashboardService {
     ) {
     }
 
-    private record DashboardBonusConfig(
-        BigDecimal bonusBaseAmount,
-        BigDecimal bonusAmountPerPoint,
-        BigDecimal bonusAbsencePenaltyPerDay,
-        BigDecimal pointsTeaching,
-        BigDecimal pointsSupervision,
-        BigDecimal pointsResearch,
-        BigDecimal pointsEvent,
-        BigDecimal pointsExamSurveillance,
-        BigDecimal pointsResponsibility,
-        BigDecimal pointsAvailability
-    ) {
-    }
-
     private record DepartmentRanking(long position, long population) {
     }
 
     private record DashboardPeriodRange(LocalDateTime start, LocalDateTime end) {
-    }
-
-    private record AdministrativeDecisionSnapshot(
-        BigDecimal totalAccumulatedPoints,
-        BigDecimal calculatedBonus,
-        int absenceDays
-    ) {
     }
 }

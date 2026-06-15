@@ -46,6 +46,8 @@ interface DashboardSummaryCard {
   note: string;
   icon: string;
   tone: 'brand' | 'ink' | 'soft' | 'accent';
+  valueValidity?: 'valide' | 'estime' | 'a_verifier';
+  valueValidityLabel?: string;
   comparisonRows?: ScopeRow[];
   performanceGauge?: PerformanceGauge;
 }
@@ -60,6 +62,7 @@ interface StrategicBenchmarkRow {
   rejected: number;
   validationRate: number;
   points: number;
+  prime: number;
   hours: number;
 }
 
@@ -242,6 +245,7 @@ export class DashboardPageComponent {
   readonly recentActivities = signal<RecentActivityCard[]>([]);
   readonly showAllRecentActivities = signal(false);
   readonly showGlobalRecentList = signal(false);
+  readonly showAllStrategicBenchmarkRows = signal(false);
   readonly selectedGlobalRecentActivity = signal<RecentActivityCard | null>(null);
   readonly recentActivityDetailSection = viewChild<ElementRef<HTMLElement>>('recentActivityDetailSection');
   readonly activityTotals = signal({ total: 0, pending: 0, approved: 0 });
@@ -255,6 +259,7 @@ export class DashboardPageComponent {
   readonly showAllAdminCriticalCases = signal(false);
   private readonly superAdminCollapsedActionsSize = 2;
   private readonly adminCriticalCasesPreviewSize = 2;
+  private readonly strategicBenchmarkPreviewSizeDepartment = 5;
   private readonly adminAbsenteeismReferenceDays = 220;
   private rankCardsAnimationTimer: ReturnType<typeof setTimeout> | null = null;
   readonly user = this.authService.user;
@@ -451,42 +456,48 @@ export class DashboardPageComponent {
       value: `${this.adminTeacherTotal()}`,
       note: 'Population RH suivie',
       icon: 'EN',
-      tone: 'brand'
+      tone: 'brand',
+      valueValidity: 'valide'
     },
     {
       label: 'Eligibles prime',
       value: `${this.adminEligibleBonusCount()}`,
       note: 'Dossiers avec prime calculee',
       icon: 'PR',
-      tone: 'accent'
+      tone: 'accent',
+      valueValidity: 'valide'
     },
     {
       label: 'Montant total primes',
       value: `${this.formatPoints(this.adminTotalBonusAmount())} DT`,
       note: 'Somme des dossiers valides',
       icon: 'DT',
-      tone: 'soft'
+      tone: 'soft',
+      valueValidity: 'valide'
     },
     {
       label: 'Prime moyenne',
       value: `${this.formatPoints(this.adminAverageBonusAmount())} DT`,
       note: 'Moyenne par enseignant',
       icon: 'MO',
-      tone: 'ink'
+      tone: 'ink',
+      valueValidity: 'valide'
     },
     {
       label: 'Eligibles grade',
       value: `${this.adminEligibleGradeCount()}`,
       note: 'Points promotion > 0',
       icon: 'GR',
-      tone: 'accent'
+      tone: 'accent',
+      valueValidity: 'valide'
     },
     {
       label: 'Conformite dossiers',
       value: this.formatRate(this.adminDossierConformityRate()),
       note: 'Dossiers valides / total',
       icon: 'CF',
-      tone: 'brand'
+      tone: 'brand',
+      valueValidity: 'valide'
     }
   ]);
   readonly adminSecondaryMetrics = computed<AdminSecondaryMetric[]>(() => [
@@ -911,7 +922,7 @@ export class DashboardPageComponent {
       supervisions: personal?.totalSupervisions ?? 0,
       research: personal?.totalResearchActivities ?? 0,
       pfe: personal?.totalPfe ?? 0,
-      points: personal?.totalTeachingPerformancePoints ?? 0,
+      points: personal?.totalAccumulatedPoints ?? 0,
       hoursCompleted: personal?.totalCompletedHours ?? 0
     };
   });
@@ -1442,6 +1453,7 @@ export class DashboardPageComponent {
         rejected: Number(item.totalRejectedActivities ?? 0),
         validationRate: Number(item.validationRatePercent ?? 0),
         points: Number(item.totalTeachingPerformancePoints ?? 0),
+        prime: 0,
         hours: Number(item.totalCompletedHours ?? 0)
       }));
     }
@@ -1456,13 +1468,33 @@ export class DashboardPageComponent {
       validated: Number(item.totalValidatedActivities ?? 0),
       rejected: Number(item.totalRejectedActivities ?? 0),
       validationRate: Number(item.validationRatePercent ?? 0),
-      points: Number(item.totalTeachingPerformancePoints ?? 0),
+      points: Number(item.totalPromotionPoints ?? 0),
+      prime: Number(item.calculatedPrime ?? 0),
       hours: Number(item.totalCompletedHours ?? 0)
     }));
   });
-  readonly strategicBenchmarkVisibleRows = computed(() =>
-    this.strategicBenchmarkRows().slice(0, this.isDepartmentHead() ? 5 : 8)
+  readonly strategicBenchmarkRowsCount = computed(() => this.strategicBenchmarkRows().length);
+  readonly hasStrategicBenchmarkRowsToggle = computed(
+    () => this.isDepartmentHead() && this.strategicBenchmarkRowsCount() > this.strategicBenchmarkPreviewSizeDepartment
   );
+  readonly strategicBenchmarkRowsToggleLabel = computed(() =>
+    this.showAllStrategicBenchmarkRows()
+      ? 'Afficher moins'
+      : `Afficher toute la liste (${this.strategicBenchmarkRowsCount()})`
+  );
+  readonly strategicBenchmarkVisibleRows = computed(() => {
+    const rows = this.strategicBenchmarkRows();
+
+    if (this.isDepartmentHead()) {
+      if (this.showAllStrategicBenchmarkRows() || rows.length <= this.strategicBenchmarkPreviewSizeDepartment) {
+        return rows;
+      }
+
+      return rows.slice(0, this.strategicBenchmarkPreviewSizeDepartment);
+    }
+
+    return rows.slice(0, 8);
+  });
   readonly strategicBenchmarkChartMetricLabel = computed(
     () =>
       this.strategicMetricOptions.find((option) => option.key === this.strategicMetric())?.label
@@ -1688,7 +1720,10 @@ export class DashboardPageComponent {
                 label: 'Delai moyen de validation',
                 value: `${this.formatHours(department?.averageValidationDelayDays ?? 0)} jour(s)`
               },
-              { label: 'Points moyens / enseignant', value: `${this.formatPoints(department?.averagePointsPerTeacher ?? 0)} pts` },
+              {
+                label: 'Points bonus moyens / enseignant',
+                value: `${this.formatPoints(department?.averagePointsPerTeacher ?? 0)} pts`
+              },
               { label: 'Meilleur score enseignant', value: `${this.formatPoints(department?.bestTeacherScore ?? 0)} pts` },
               { label: 'Absences moyennes', value: `${this.formatHours(department?.averageAbsenceDays ?? 0)} jour(s)` },
               { label: "Taux d'activite global", value: `${this.formatHours(department?.departmentActivityRate ?? 0)} act./ens.` },
@@ -1823,9 +1858,9 @@ export class DashboardPageComponent {
           },
           {
             title: useDepartmentComparison ? 'Comparatif departemental' : 'Comparatif ESPRIT',
-            description: `Positionnement global de vos points face aux ${comparisonCount} enseignant(s) actifs compares.`,
+            description: `Positionnement de vos points d'enseignement face aux ${comparisonCount} enseignant(s) actifs compares.`,
             rows: [
-              { label: 'Mes points', value: `${this.formatPoints(personal?.totalTeachingPerformancePoints ?? 0)} pts` },
+              { label: 'Mes points enseignement', value: `${this.formatPoints(personal?.totalTeachingPerformancePoints ?? 0)} pts` },
               { label: 'Max', value: `${this.formatPoints(comparisonMax)} pts` },
               { label: 'Moyenne', value: `${this.formatPoints(comparisonAverage)} pts` },
               { label: 'Min', value: `${this.formatPoints(comparisonMin)} pts` }
@@ -2226,42 +2261,48 @@ export class DashboardPageComponent {
           value: `${department?.totalTeachers ?? 0}`,
           note: 'Effectif departemental actif',
           icon: 'EN',
-          tone: 'brand'
+          tone: 'brand',
+          valueValidity: 'valide'
         },
         {
           label: 'Activites soumises',
           value: `${department?.totalSubmittedActivities ?? 0}`,
           note: `Periode ${this.periodLabel()}`,
           icon: 'SM',
-          tone: 'accent'
+          tone: 'accent',
+          valueValidity: 'valide'
         },
         {
           label: 'Activites en attente',
           value: `${department?.totalPendingActivities ?? 0}`,
           note: 'A traiter en priorite',
           icon: 'AT',
-          tone: 'soft'
+          tone: 'soft',
+          valueValidity: 'valide'
         },
         {
           label: 'Taux de validation',
           value: this.formatRate(department?.validationRatePercent ?? 0),
           note: 'Dossiers valides / soumis',
           icon: 'TV',
-          tone: 'ink'
+          tone: 'ink',
+          valueValidity: 'valide'
         },
         {
-          label: 'Moyenne points / enseignant',
+          label: 'Moyenne points bonus / enseignant',
           value: `${this.formatPoints(department?.averagePointsPerTeacher ?? 0)} pts`,
           note: 'Performance departementale moyenne',
           icon: 'PT',
-          tone: 'brand'
+          tone: 'brand',
+          valueValidity: 'valide'
         },
         {
           label: 'Delai moyen validation',
           value: `${this.roundNumber(department?.averageValidationDelayDays ?? 0)} j`,
           note: 'Temps moyen de traitement',
           icon: 'DL',
-          tone: 'accent'
+          tone: 'accent',
+          valueValidity: 'valide'
         }
       ];
     }
@@ -2272,49 +2313,59 @@ export class DashboardPageComponent {
     const rank = this.roleScopedDepartmentRank();
     const pending = this.roleScopedPendingActivities();
     const absences = this.roleScopedAbsences();
+    const pointsNote = this.isTeacherAccount()
+      ? 'Points bonus/promotion cumules sur la periode'
+      : 'Indicateur transversal global';
 
     return [
       {
         label: 'Points cumules',
         value: `${this.formatPoints(points)} pts`,
-        note: 'Indicateur transversal global',
+        note: pointsNote,
         icon: 'PT',
-        tone: 'brand'
+        tone: 'brand',
+        valueValidity: 'valide'
       },
       {
         label: 'Prime estimee',
         value: prime,
         note: '0 ou non disponible selon role',
         icon: 'PM',
-        tone: 'accent'
+        tone: 'accent',
+        valueValidity: this.isTeacherAccount() ? 'estime' : 'a_verifier',
+        valueValidityLabel: this.isTeacherAccount() ? 'Estime' : 'A verifier'
       },
       {
         label: 'Taux de validation global',
         value: this.formatRate(validationRate),
         note: 'Tous dossiers confondus',
         icon: 'TV',
-        tone: 'soft'
+        tone: 'soft',
+        valueValidity: 'valide'
       },
       {
         label: 'Rang departemental',
         value: rank,
         note: 'Position sur votre perimetre',
         icon: 'RG',
-        tone: 'ink'
+        tone: 'ink',
+        valueValidity: 'valide'
       },
       {
         label: 'Activites en attente',
         value: `${pending}`,
         note: 'A valider ou a corriger',
         icon: 'AT',
-        tone: 'brand'
+        tone: 'brand',
+        valueValidity: 'valide'
       },
       {
         label: 'Absences',
         value: absences,
         note: 'Valeur globale du perimetre',
         icon: 'AB',
-        tone: 'soft'
+        tone: 'soft',
+        valueValidity: 'valide'
       }
     ];
   });
@@ -2465,11 +2516,11 @@ export class DashboardPageComponent {
 
   readonly globalComparisonTitle = computed(() => {
     if (this.isTeacherAccount()) {
-      return 'Comparatif points (Min / Moy / Max)';
+      return "Comparatif points d'enseignement (Min / Moy / Max)";
     }
 
     if (this.isDepartmentHead()) {
-      return 'Comparatif enseignants du departement (points)';
+      return 'Comparatif enseignants du departement (points bonus)';
     }
 
     return 'Comparatif departements (points)';
@@ -2495,7 +2546,7 @@ export class DashboardPageComponent {
 
     if (this.isDepartmentHead()) {
       const benchmark = this.departmentDashboard()?.teacherBenchmark ?? [];
-      const stats = this.computeStatsRange(benchmark.map((item) => Number(item.totalTeachingPerformancePoints ?? 0)));
+      const stats = this.computeStatsRange(benchmark.map((item) => Number(item.totalPromotionPoints ?? 0)));
       const current = Number(this.departmentDashboard()?.averagePointsPerTeacher ?? 0);
       return this.buildComparisonRows(stats, current);
     }
@@ -2556,7 +2607,7 @@ export class DashboardPageComponent {
       stats = { min, average, max };
     } else if (this.isDepartmentHead()) {
       const benchmark = this.departmentDashboard()?.teacherBenchmark ?? [];
-      stats = this.computeStatsRange(benchmark.map((item) => Number(item.totalTeachingPerformancePoints ?? 0)));
+      stats = this.computeStatsRange(benchmark.map((item) => Number(item.totalPromotionPoints ?? 0)));
       current = Number(this.departmentDashboard()?.averagePointsPerTeacher ?? 0);
     } else {
       const benchmark = this.globalDashboard()?.departmentBenchmark ?? [];
@@ -2806,6 +2857,7 @@ export class DashboardPageComponent {
           this.scopedTeachingActivities.set(teachings);
           this.scopedSupervisionActivities.set(supervisions);
           this.showAllOverviewSections.set(false);
+          this.showAllStrategicBenchmarkRows.set(false);
           this.lastLoadedAt.set(new Date());
           if (personal?.periodLabel) {
             this.periodLabel.set(personal.periodLabel);
@@ -2862,6 +2914,14 @@ export class DashboardPageComponent {
 
   toggleGlobalRecentList() {
     this.showGlobalRecentList.update((value) => !value);
+  }
+
+  toggleStrategicBenchmarkRows() {
+    if (!this.hasStrategicBenchmarkRowsToggle()) {
+      return;
+    }
+
+    this.showAllStrategicBenchmarkRows.update((value) => !value);
   }
 
   toggleSuperAdminSystemActions() {
@@ -3384,6 +3444,23 @@ export class DashboardPageComponent {
     }
   }
 
+  cardValidityLabel(card: DashboardSummaryCard) {
+    if (card.valueValidityLabel) {
+      return card.valueValidityLabel;
+    }
+
+    switch (card.valueValidity) {
+      case 'valide':
+        return 'Valide';
+      case 'estime':
+        return 'Estime';
+      case 'a_verifier':
+        return 'A verifier';
+      default:
+        return '';
+    }
+  }
+
   private formatStrategicMetricTick(value: number, metric: StrategicBenchmarkMetric) {
     switch (metric) {
       case 'validationRate':
@@ -3450,10 +3527,15 @@ export class DashboardPageComponent {
     }
 
     if (this.isDepartmentHead()) {
-      return Number(this.departmentDashboard()?.totalTeachingPerformancePoints ?? 0);
+      return this.departmentScopedPromotionPoints();
     }
 
     return Number(this.globalDashboard()?.totalTeachingPerformancePoints ?? 0);
+  }
+
+  private departmentScopedPromotionPoints() {
+    const benchmark = this.departmentDashboard()?.teacherBenchmark ?? [];
+    return benchmark.reduce((total, item) => total + Number(item.totalPromotionPoints ?? 0), 0);
   }
 
   private roleScopedEstimatedPrime() {

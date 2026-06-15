@@ -2,6 +2,7 @@ $ErrorActionPreference = 'Stop'
 
 $repoRoot = Split-Path -Parent $MyInvocation.MyCommand.Path
 $backendDir = Join-Path $repoRoot 'backend'
+$rootEnvFile = Join-Path $repoRoot '.env'
 $mailEnvFile = Join-Path $backendDir '.mail.env'
 $backendStdout = Join-Path $backendDir 'backend-live.stdout.log'
 $backendStderr = Join-Path $backendDir 'backend-live.stderr.log'
@@ -54,6 +55,11 @@ function Import-KeyValueEnvFile {
         }
 
         Set-Item -Path "Env:$name" -Value $value
+
+        $normalizedName = ($name -replace '[\.\-]', '_').ToUpperInvariant()
+        if ($normalizedName -and $normalizedName -ne $name) {
+            Set-Item -Path "Env:$normalizedName" -Value $value
+        }
     }
 
     return $true
@@ -123,6 +129,10 @@ function Wait-ForStableUrl {
 }
 
 $maven = Get-Command mvn.cmd -ErrorAction Stop
+
+if (Import-KeyValueEnvFile -Path $rootEnvFile) {
+    Write-Host "Loaded environment values from $rootEnvFile."
+}
 
 if (Import-KeyValueEnvFile -Path $mailEnvFile) {
     Write-Host "Loaded mail configuration from $mailEnvFile."

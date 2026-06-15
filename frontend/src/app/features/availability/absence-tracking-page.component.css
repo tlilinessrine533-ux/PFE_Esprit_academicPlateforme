@@ -56,6 +56,40 @@
   overflow-x: auto;
 }
 
+.list-expand-row {
+  display: flex;
+  justify-content: center;
+  padding: 0.75rem 0 0.25rem;
+}
+
+.list-expand-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.6rem;
+  height: 2.6rem;
+  background: var(--surface-raised, #1e2537);
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  border-radius: 0.65rem;
+  cursor: pointer;
+  color: var(--text-muted, #94a3b8);
+  transition: background 0.15s, color 0.15s, transform 0.15s;
+}
+
+.list-expand-btn:hover {
+  background: var(--surface-hover, #263050);
+  color: var(--text, #e2e8f0);
+}
+
+.list-expand-btn svg {
+  transition: transform 0.25s ease;
+  pointer-events: none;
+}
+
+.list-expand-btn.is-open svg {
+  transform: rotate(180deg);
+}
+
 .data-table {
   width: 100%;
   border-collapse: collapse;

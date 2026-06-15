@@ -1,11 +1,17 @@
 import { DatePipe } from '@angular/common';
 import { ChangeDetectionStrategy, Component, DestroyRef, computed, inject, signal } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
-import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
+import { FormArray, FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { ChartData } from 'chart.js';
 import { forkJoin, of } from 'rxjs';
 import { Department } from '../../core/models/shared.models';
-import { ReportFormat, ReportResponse, ReportType } from '../../core/models/report.models';
+import {
+  FutureObjectiveInput,
+  GenerateIndividualReportPayload,
+  ReportFormat,
+  ReportResponse,
+  ReportType
+} from '../../core/models/report.models';
 import { AuthService } from '../../core/services/auth.service';
 import { ReportService } from '../../core/services/report.service';
 import { UiToastService } from '../../core/services/ui-toast.service';
@@ -20,6 +26,8 @@ type GenerationAction =
   | 'department-excel'
   | 'institution-pdf'
   | 'institution-excel';
+
+type IndividualDownloadFormat = 'PDF' | 'EXCEL';
 
 @Component({
   selector: 'app-reports-page',
@@ -56,7 +64,7 @@ export class ReportsPageComponent {
   ] as const;
   readonly formatFilter = signal<(typeof this.formatFilters)[number]>('ALL');
   readonly typeFilter = signal<(typeof this.typeFilters)[number]>('ALL');
-  readonly collapsedHistorySize = 2;
+  readonly collapsedHistorySize = 4;
   readonly showFullHistory = signal(false);
   readonly currentUser = this.authService.user;
   readonly isAdministration = computed(() => this.authService.hasAnyRole('ADMINISTRATION'));
@@ -66,6 +74,13 @@ export class ReportsPageComponent {
   readonly canGenerateDepartment = computed(() => this.authService.hasAnyRole('CHEF_DEPARTEMENT'));
   readonly canGenerateInstitution = computed(() => this.authService.hasAnyRole('ADMINISTRATION', 'SUPER_ADMIN'));
   readonly canSelectDepartment = computed(() => false);
+  readonly appreciationLevels = [
+    { value: 1, label: '1 / Insatisfaisant' },
+    { value: 2, label: '2 / A ameliorer' },
+    { value: 3, label: '3 / Satisfaisant' },
+    { value: 4, label: '4 / Tres satisfaisant' },
+    { value: 5, label: '5 / Exceptionnel' }
+  ] as const;
   readonly visibleReports = computed(() => {
     if (this.isSuperAdmin()) {
       return this.reports();
@@ -123,7 +138,12 @@ export class ReportsPageComponent {
   readonly historyToggleLabel = computed(() =>
     this.showFullHistory() ? "Masquer l'historique" : "Afficher tout l'historique"
   );
-  readonly latestReport = computed(() => this.filteredReports()[0] ?? this.visibleReports()[0] ?? null);
+  readonly latestIndividualArchive = computed(() =>
+    this.visibleReports()
+      .filter((report) => report.reportType === 'INDIVIDUEL_ANNUEL')
+      .slice()
+      .sort((first, second) => this.compareReportsByRecency(first, second))[0] ?? null
+  );
   readonly totalPdfReports = computed(() => this.visibleReports().filter((report) => report.reportFormat === 'PDF').length);
   readonly totalExcelReports = computed(() => this.visibleReports().filter((report) => report.reportFormat === 'EXCEL').length);
   readonly distinctPeriodsCount = computed(() => new Set(this.visibleReports().map((report) => report.periodLabel)).size);
@@ -221,8 +241,33 @@ export class ReportsPageComponent {
   });
 
   readonly reportForm = this.formBuilder.nonNullable.group({
-    periodLabel: ['2025-2026', [Validators.required]],
+    periodLabel: ['', [Validators.required]],
     departmentId: ['']
+  });
+  readonly individualReportForm = this.formBuilder.nonNullable.group({
+    periodLabel: ['', [Validators.required]],
+    appreciationLevel: [3, [Validators.required, Validators.min(1), Validators.max(5)]],
+    futureObjectives: this.formBuilder.nonNullable.array([this.createFutureObjectiveFormGroup()])
+  });
+  readonly individualWizardOpen = signal(false);
+  readonly loadingIndividualYears = signal(false);
+  readonly selectedIndividualFormat = signal<IndividualDownloadFormat>('PDF');
+  readonly individualAcademicYears = signal<string[]>([]);
+  readonly selectedIndividualAcademicYear = signal('');
+  readonly showIndividualQuestionnaire = computed(() => this.selectedIndividualAcademicYear().length > 0);
+  readonly individualWizardActionLabel = computed(() =>
+    this.selectedIndividualFormat() === 'PDF' ? 'Telecharger PDF individuel' : 'Telecharger Excel individuel'
+  );
+  readonly isGeneratingIndividualDownload = computed(
+    () => this.isGenerating('individual-pdf') || this.isGenerating('individual-excel')
+  );
+  readonly availableIndividualAcademicYears = computed(() => {
+    const years = this.individualAcademicYears();
+    if (years.length > 0) {
+      return years;
+    }
+
+    return this.buildFallbackAcademicYears(6);
   });
 
   constructor() {
@@ -254,30 +299,69 @@ export class ReportsPageComponent {
       });
   }
 
-  generatePdf() {
-    if (!this.validateBaseForm()) {
+  startIndividualPdfDownload() {
+    this.scrollToReportGeneration();
+    this.openIndividualDownloadWizard('PDF');
+  }
+
+  startIndividualExcelDownload() {
+    this.scrollToReportGeneration();
+    this.openIndividualDownloadWizard('EXCEL');
+  }
+
+  closeIndividualDownloadWizard() {
+    this.individualWizardOpen.set(false);
+  }
+
+  selectIndividualAcademicYear(year: string) {
+    this.selectedIndividualAcademicYear.set(year);
+    this.individualReportForm.controls.periodLabel.setValue(year);
+    this.scrollToIndividualQuestionnaire();
+  }
+
+  confirmIndividualDownload() {
+    if (!this.validateIndividualQuestionnaireForm()) {
       return;
     }
 
+    const payload = this.buildIndividualReportPayload();
+    const format = this.selectedIndividualFormat();
+    const isPdf = format === 'PDF';
+
     this.runGeneration(
-      'individual-pdf',
-      () => this.reportService.generatePdf(this.reportForm.getRawValue().periodLabel),
-      'Rapport PDF prêt',
-      'Le rapport PDF individuel a été généré et téléchargé.'
+      isPdf ? 'individual-pdf' : 'individual-excel',
+      () => (isPdf ? this.reportService.generatePdf(payload) : this.reportService.generateExcel(payload)),
+      isPdf ? 'Rapport PDF pret' : 'Rapport Excel pret',
+      isPdf ? 'Le rapport PDF individuel a ete genere et telecharge.' : 'Le rapport Excel individuel a ete genere et telecharge.',
+      () => this.closeIndividualDownloadWizard()
     );
   }
 
-  generateExcel() {
-    if (!this.validateBaseForm()) {
+  downloadLatestIndividualArchive() {
+    const latest = this.latestIndividualArchive();
+    if (!latest) {
+      const message = "Aucune archive individuelle disponible pour ce compte.";
+      this.errorMessage.set(message);
+      this.toastService.warning('Archive indisponible', message);
       return;
     }
 
-    this.runGeneration(
-      'individual-excel',
-      () => this.reportService.generateExcel(this.reportForm.getRawValue().periodLabel),
-      'Rapport Excel prêt',
-      'Le rapport Excel individuel a été généré et téléchargé.'
+    this.toastService.warning(
+      'Archive precedente',
+      "Vous telechargez une ancienne archive. Utilisez 'Telecharger PDF individuel' pour generer la nouvelle version du formulaire."
     );
+    this.downloadReport(latest);
+  }
+
+  addFutureObjective() {
+    this.futureObjectivesArray.push(this.createFutureObjectiveFormGroup());
+  }
+
+  removeFutureObjective(index: number) {
+    if (this.futureObjectivesArray.length <= 1) {
+      return;
+    }
+    this.futureObjectivesArray.removeAt(index);
   }
 
   generateDepartmentPdf() {
@@ -383,6 +467,27 @@ export class ReportsPageComponent {
     this.showReportsDashboard.update((value) => !value);
   }
 
+  private scrollToReportGeneration() {
+    const section = document.getElementById('report-generation');
+    section?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
+
+  private scrollToIndividualQuestionnaire() {
+    setTimeout(() => {
+      const section = document.getElementById('individual-questionnaire-form');
+      section?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    });
+  }
+
+  private openIndividualDownloadWizard(format: IndividualDownloadFormat) {
+    this.selectedIndividualFormat.set(format);
+    this.resetIndividualQuestionnaireForm();
+    this.individualWizardOpen.set(true);
+    this.errorMessage.set('');
+    this.successMessage.set('');
+    this.loadIndividualAcademicYears();
+  }
+
   reportFormatTone(format: ReportFormat) {
     return format === 'PDF' ? 'brand' : 'accent';
   }
@@ -446,7 +551,8 @@ export class ReportsPageComponent {
     action: GenerationAction,
     requestFactory: () => ReturnType<ReportService['generatePdf']>,
     toastTitle: string,
-    successMessage: string
+    successMessage: string,
+    onSuccess?: () => void
   ) {
     this.generatingAction.set(action);
     this.errorMessage.set('');
@@ -460,6 +566,7 @@ export class ReportsPageComponent {
           this.reportService.saveResponseFile(response);
           this.successMessage.set(successMessage);
           this.toastService.success(toastTitle, successMessage);
+          onSuccess?.();
           this.loadPageData();
         },
         error: (error) => {
@@ -478,6 +585,94 @@ export class ReportsPageComponent {
     }
 
     return true;
+  }
+
+  get futureObjectivesArray(): FormArray {
+    return this.individualReportForm.controls.futureObjectives;
+  }
+
+  private createFutureObjectiveFormGroup() {
+    return this.formBuilder.nonNullable.group({
+      objective: ['', [Validators.required, Validators.maxLength(1200)]],
+      timeline: ['', [Validators.required, Validators.maxLength(255)]],
+      requiredResources: ['', [Validators.required, Validators.maxLength(1200)]],
+      successIndicators: ['', [Validators.required, Validators.maxLength(1200)]]
+    });
+  }
+
+  private validateIndividualQuestionnaireForm() {
+    if (!this.canGenerateIndividual()) {
+      return true;
+    }
+
+    if (this.individualReportForm.invalid || this.generatingAction()) {
+      this.individualReportForm.markAllAsTouched();
+      const message = "Choisissez l'annee universitaire puis completez l'appreciation globale et les objectifs.";
+      this.errorMessage.set(message);
+      this.toastService.warning('Formulaire incomplet', message);
+      return false;
+    }
+
+    return true;
+  }
+
+  private buildIndividualReportPayload(): GenerateIndividualReportPayload {
+    const formValue = this.individualReportForm.getRawValue();
+    const futureObjectives: FutureObjectiveInput[] = formValue.futureObjectives.map((objective) => ({
+      objective: objective.objective.trim(),
+      timeline: objective.timeline.trim(),
+      requiredResources: objective.requiredResources.trim(),
+      successIndicators: objective.successIndicators.trim()
+    }));
+
+    return {
+      periodLabel: formValue.periodLabel.trim(),
+      appreciationLevel: Number(formValue.appreciationLevel),
+      futureObjectives
+    };
+  }
+
+  private resetIndividualQuestionnaireForm() {
+    this.selectedIndividualAcademicYear.set('');
+    this.individualReportForm.controls.periodLabel.setValue('');
+    this.individualReportForm.controls.appreciationLevel.setValue(3);
+    this.futureObjectivesArray.clear();
+    this.futureObjectivesArray.push(this.createFutureObjectiveFormGroup());
+    this.individualReportForm.markAsPristine();
+    this.individualReportForm.markAsUntouched();
+  }
+
+  private loadIndividualAcademicYears() {
+    if (!this.canGenerateIndividual()) {
+      return;
+    }
+
+    this.loadingIndividualYears.set(true);
+    this.reportService
+      .getIndividualAcademicYears()
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe({
+        next: (years) => {
+          const normalized = [...new Set(years.map((year) => year.trim()).filter((year) => year.length > 0))];
+          this.individualAcademicYears.set(normalized);
+          this.loadingIndividualYears.set(false);
+        },
+        error: () => {
+          this.loadingIndividualYears.set(false);
+          this.individualAcademicYears.set(this.buildFallbackAcademicYears(6));
+        }
+      });
+  }
+
+  private buildFallbackAcademicYears(size: number) {
+    const years: string[] = [];
+    const now = new Date();
+    const currentStartYear = now.getMonth() >= 7 ? now.getFullYear() : now.getFullYear() - 1;
+    for (let offset = 0; offset < size; offset += 1) {
+      const startYear = currentStartYear - offset;
+      years.push(`${startYear}-${startYear + 1}`);
+    }
+    return years;
   }
 
   private resolveDepartmentIdForDepartmentReport() {

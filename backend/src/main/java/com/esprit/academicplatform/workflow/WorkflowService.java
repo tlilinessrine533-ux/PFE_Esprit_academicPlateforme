@@ -392,7 +392,9 @@ public class WorkflowService {
                     + formatUserDisplayName(teacher)
                     + " a été validée par le département et attend la validation finale."
             );
-
+                System.out.println("MAIL DEBUG - decision = " + decision);
+                System.out.println("MAIL DEBUG - activity class = " + activity.getClass().getName());
+                System.out.println("MAIL DEBUG - is availability = " + (activity instanceof AvailabilityRequestActivity));
             if (activity instanceof AvailabilityRequestActivity availabilityRequestActivity) {
                 workflowMailService.sendAvailabilityApprovalMail(availabilityRequestActivity, actor);
             }

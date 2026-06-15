@@ -76,8 +76,8 @@ export class WorkflowPageComponent {
   readonly collapsedTimelineSize = 2;
   readonly showFullTimeline = signal(false);
   readonly showWorkflowDashboard = signal(true);
-  private readonly workflowLoadTimeoutMs = 12000;
-  private readonly workflowHistoryTimeoutMs = 10000;
+  private readonly workflowLoadTimeoutMs = 30000;
+  private readonly workflowHistoryTimeoutMs = 30000;
   private loadCycle = 0;
   readonly selectedDetailActivity = computed(() => {
     const activity = this.selectedActivity();
@@ -592,9 +592,11 @@ export class WorkflowPageComponent {
     this.scrollToHistoryAndDetails();
   }
 
-  reviewDepartment(activity: WorkflowActivityResponse, decision: ReviewActionDecision) {
-    this.startReview('department', activity, decision);
-  }
+ reviewDepartment(activity: WorkflowActivityResponse, decision: ReviewActionDecision) {
+  this.reviewDraft.set({ level: 'department', activity, decision });
+  this.reviewComment.set('');
+  this.submitReview();
+}
 
   reviewFinal(activity: WorkflowActivityResponse, decision: ReviewActionDecision) {
     this.startReview('final', activity, decision);

@@ -26,12 +26,17 @@ export class AbsenceTrackingPageComponent {
   readonly absences = signal<AbsenceSummaryResponse[]>([]);
   readonly searchTerm = signal('');
   readonly showAbsenceDashboard = signal(true);
+  readonly showFullList = signal(false);
   readonly isAdministration = computed(() => this.authService.hasAnyRole('ADMINISTRATION'));
   readonly roleLabel = computed(() => (this.isAdministration() ? 'Administration' : 'Chef de departement'));
 
   readonly periodForm = this.formBuilder.nonNullable.group({
     periodLabel: [this.defaultAcademicYear(), [Validators.required]]
   });
+
+  readonly visibleAbsences = computed(() =>
+    this.showFullList() ? this.filteredAbsences() : this.filteredAbsences().slice(0, 4)
+  );
 
   readonly filteredAbsences = computed(() => {
     const term = this.searchTerm().trim().toLowerCase();
@@ -143,6 +148,10 @@ export class AbsenceTrackingPageComponent {
 
   toggleAbsenceDashboard() {
     this.showAbsenceDashboard.update((value) => !value);
+  }
+
+  toggleFullList() {
+    this.showFullList.update((value) => !value);
   }
 
   private defaultAcademicYear() {

@@ -1,0 +1,219 @@
+---
+- name: Déploiement complet Academic Platform (Infrastructure DevOps)
+  hosts: deployment_server
+  become: yes
+  tasks:
+
+    # -----------------------------------------------
+    # 1. MISE À JOUR ET PRÉREQUIS
+    # -----------------------------------------------
+
+    - name: Mise à jour du cache APT
+      apt:
+        update_cache: yes
+        cache_valid_time: 3600
+
+    - name: Installation des paquets nécessaires
+      apt:
+        name:
+          - apt-transport-https
+          - ca-certificates
+          - curl
+          - software-properties-common
+          - gnupg
+          - git
+        state: present
+
+    # -----------------------------------------------
+    # 2. INSTALLATION DE DOCKER
+    # -----------------------------------------------
+
+    - name: Ajout de la clé GPG Docker
+      apt_key:
+        url: https://download.docker.com/linux/ubuntu/gpg
+        state: present
+
+    - name: Ajout du dépôt APT Docker
+      apt_repository:
+        repo: deb [arch=amd64] https://download.docker.com/linux/ubuntu jammy stable
+        state: present
+
+    - name: Installation de Docker et Docker Compose
+      apt:
+        name:
+          - docker-ce
+          - docker-ce-cli
+          - containerd.io
+          - docker-buildx-plugin
+          - docker-compose-plugin
+        state: present
+        update_cache: yes
+
+    - name: Démarrage du service Docker
+      service:
+        name: docker
+        state: started
+        enabled: yes
+
+    - name: Ajout de l'utilisateur vagrant au groupe docker
+      user:
+        name: vagrant
+        groups: docker
+        append: yes
+
+    # -----------------------------------------------
+    # 3. CONFIGURATION SYSTÈME POUR SONARQUBE
+    # -----------------------------------------------
+
+    - name: Configurer vm.max_map_count pour SonarQube (obligatoire)
+      sysctl:
+        name: vm.max_map_count
+        value: "524288"
+        state: present
+        reload: yes
+
+    - name: Configurer fs.file-max pour SonarQube
+      sysctl:
+        name: fs.file-max
+        value: "131072"
+        state: present
+        reload: yes
+
+    # -----------------------------------------------
+    # 4. CRÉATION DE L'ARBORESCENCE DU PROJET
+    # -----------------------------------------------
+
+    - name: Créer le répertoire principal de l'application
+      file:
+        path: /opt/academic-platform
+        state: directory
+        owner: vagrant
+        group: vagrant
+        recurse: yes
+
+    - name: Créer les sous-répertoires nécessaires
+      file:
+        path: "/opt/academic-platform/{{ item }}"
+        state: directory
+        owner: vagrant
+        group: vagrant
+      loop:
+        - docker/frontend
+        - docker/backend
+        - docker/jenkins
+        - monitoring/grafana/datasources
+        - jenkins
+
+    # -----------------------------------------------
+    # 5. COPIE DE TOUS LES FICHIERS DE CONFIGURATION
+    # -----------------------------------------------
+
+    - name: Copier docker-compose.yml
+      copy:
+        src: ../docker-compose.yml
+        dest: /opt/academic-platform/docker-compose.yml
+        owner: vagrant
+        group: vagrant
+
+    - name: Copier le Dockerfile Jenkins
+      copy:
+        src: ../docker/jenkins/Dockerfile
+        dest: /opt/academic-platform/docker/jenkins/Dockerfile
+        owner: vagrant
+        group: vagrant
+
+    - name: Copier le Dockerfile Frontend
+      copy:
+        src: ../docker/frontend/Dockerfile
+        dest: /opt/academic-platform/docker/frontend/Dockerfile
+        owner: vagrant
+        group: vagrant
+
+    - name: Copier la config Nginx Frontend
+      copy:
+        src: ../docker/frontend/nginx.conf
+        dest: /opt/academic-platform/docker/frontend/nginx.conf
+        owner: vagrant
+        group: vagrant
+
+    - name: Copier le Dockerfile Backend
+      copy:
+        src: ../docker/backend/Dockerfile
+        dest: /opt/academic-platform/docker/backend/Dockerfile
+        owner: vagrant
+        group: vagrant
+
+    - name: Copier la configuration Prometheus
+      copy:
+        src: ../monitoring/prometheus.yml
+        dest: /opt/academic-platform/monitoring/prometheus.yml
+        owner: vagrant
+        group: vagrant
+
+    - name: Copier la datasource Grafana
+      copy:
+        src: ../monitoring/grafana/datasources/prometheus.yml
+        dest: /opt/academic-platform/monitoring/grafana/datasources/prometheus.yml
+        owner: vagrant
+        group: vagrant
+
+    - name: Copier le Jenkinsfile
+      copy:
+        src: ../jenkins/Jenkinsfile
+        dest: /opt/academic-platform/jenkins/Jenkinsfile
+        owner: vagrant
+        group: vagrant
+
+    # -----------------------------------------------
+    # 6. DÉPLOIEMENT DE L'INFRASTRUCTURE DEVOPS
+    # -----------------------------------------------
+
+    # On démarre d'abord UNIQUEMENT les services d'infrastructure
+    # (pas backend/frontend car les images n'existent pas encore)
+    - name: Démarrer les services DevOps (Jenkins, SonarQube, Prometheus, Grafana, Nexus)
+      shell: |
+        cd /opt/academic-platform
+        docker compose up -d mysql mailhog jenkins sonar-db sonarqube prometheus grafana nexus
+      become_user: vagrant
+
+    - name: Attendre le démarrage des services (60 secondes)
+      pause:
+        seconds: 60
+
+    - name: Afficher l'état des conteneurs
+      command: docker ps --format "table {{'{{'}}.Names{{'}}'}}\t{{'{{'}}.Status{{'}}'}}\t{{'{{'}}.Ports{{'}}'}}"
+      register: docker_status
+
+    - name: Statut des conteneurs
+      debug:
+        msg: "{{ docker_status.stdout_lines }}"
+
+    # -----------------------------------------------
+    # 7. AFFICHER LES INFORMATIONS D'ACCÈS
+    # -----------------------------------------------
+
+    - name: Récupérer le mot de passe initial Jenkins
+      shell: docker exec academic_jenkins cat /var/jenkins_home/secrets/initialAdminPassword 2>/dev/null || echo "Jenkins pas encore prêt, réessayez dans 1 minute"
+      register: jenkins_password
+
+    - name: Informations d'accès
+      debug:
+        msg:
+          - "============================================"
+          - "   INFRASTRUCTURE DEVOPS DÉPLOYÉE ✅"
+          - "============================================"
+          - ""
+          - "🌐 Frontend Angular  → http://192.168.56.10"
+          - "🔧 Backend API       → http://192.168.56.10:8081"
+          - "🏗️ Jenkins           → http://192.168.56.10:8080"
+          - "📊 SonarQube         → http://192.168.56.10:9000"
+          - "📈 Grafana           → http://192.168.56.10:3000"
+          - "🔍 Prometheus        → http://192.168.56.10:9090"
+          - "📦 Nexus             → http://192.168.56.10:8082"
+          - "📧 MailHog           → http://192.168.56.10:8025"
+          - ""
+          - "🔑 Jenkins Password  → {{ jenkins_password.stdout }}"
+          - "🔑 SonarQube         → admin / admin"
+          - "🔑 Grafana           → admin / admin"
+          - "🔑 MySQL             → root / root"
+          - "============================================"

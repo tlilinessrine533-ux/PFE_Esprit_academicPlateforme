@@ -52,9 +52,14 @@ public class AdministrationSchemaBootstrap implements CommandLineRunner {
         VALUES ('bonus.base.amount', '500.00')
         """;
 
-    private static final String INSERT_DEFAULT_BONUS_AMOUNT_PER_POINT = """
+    private static final String INSERT_DEFAULT_REFERENCE_POINTS = """
         INSERT IGNORE INTO administration_settings (setting_key, setting_value)
-        VALUES ('bonus.amount.per.point', '10.00')
+        VALUES ('prime.reference.points', '500.00')
+        """;
+
+    private static final String INSERT_DEFAULT_TOTAL_PRIME_AMOUNT = """
+        INSERT IGNORE INTO administration_settings (setting_key, setting_value)
+        VALUES ('prime.total.amount', '0.00')
         """;
 
     private static final String INSERT_DEFAULT_BONUS_ABSENCE_PENALTY = """
@@ -97,11 +102,6 @@ public class AdministrationSchemaBootstrap implements CommandLineRunner {
         VALUES ('points.responsibility', '3.00')
         """;
 
-    private static final String INSERT_DEFAULT_POINTS_AVAILABILITY = """
-        INSERT IGNORE INTO administration_settings (setting_key, setting_value)
-        VALUES ('points.availability', '1.00')
-        """;
-
     private final JdbcTemplate jdbcTemplate;
 
     @Override
@@ -109,7 +109,8 @@ public class AdministrationSchemaBootstrap implements CommandLineRunner {
         jdbcTemplate.execute(CREATE_ADMINISTRATION_SETTINGS_TABLE);
         jdbcTemplate.execute(CREATE_ADMINISTRATIVE_DECISIONS_TABLE);
         jdbcTemplate.execute(INSERT_DEFAULT_BONUS_BASE);
-        jdbcTemplate.execute(INSERT_DEFAULT_BONUS_AMOUNT_PER_POINT);
+        jdbcTemplate.execute(INSERT_DEFAULT_REFERENCE_POINTS);
+        jdbcTemplate.execute(INSERT_DEFAULT_TOTAL_PRIME_AMOUNT);
         jdbcTemplate.execute(INSERT_DEFAULT_BONUS_ABSENCE_PENALTY);
         jdbcTemplate.execute(INSERT_DEFAULT_PROMOTION_FACTOR);
         jdbcTemplate.execute(INSERT_DEFAULT_POINTS_TEACHING);
@@ -118,7 +119,5 @@ public class AdministrationSchemaBootstrap implements CommandLineRunner {
         jdbcTemplate.execute(INSERT_DEFAULT_POINTS_EVENT);
         jdbcTemplate.execute(INSERT_DEFAULT_POINTS_EXAM);
         jdbcTemplate.execute(INSERT_DEFAULT_POINTS_RESPONSIBILITY);
-        jdbcTemplate.execute(INSERT_DEFAULT_POINTS_AVAILABILITY);
     }
 }
-

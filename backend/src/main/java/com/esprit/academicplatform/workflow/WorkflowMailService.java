@@ -28,30 +28,53 @@ public class WorkflowMailService {
     private final WorkflowMailProperties workflowMailProperties;
 
     public void sendAvailabilityApprovalMail(AvailabilityRequestActivity activity, User departmentHead) {
+        System.out.println("========== MAIL DEBUG START ==========");
+        System.out.println("MAIL DEBUG - sendAvailabilityApprovalMail called");
+        System.out.println("MAIL DEBUG - activity id = " + activity.getId());
+        System.out.println("MAIL DEBUG - sender = " + workflowMailProperties.getSender());
+
         List<String> recipients = workflowMailProperties.availabilityApprovalRecipients();
+        System.out.println("MAIL DEBUG - recipients = " + recipients);
+
         if (recipients.isEmpty()) {
+            System.out.println("MAIL DEBUG - STOP: no recipients configured");
             log.info("Skipping availability approval email for activity {} because no recipients are configured.", activity.getId());
+            System.out.println("========== MAIL DEBUG END ==========");
             return;
         }
 
         JavaMailSender mailSender = mailSenderProvider.getIfAvailable();
+        System.out.println("MAIL DEBUG - mailSender available = " + (mailSender != null));
+
         if (mailSender == null) {
+            System.out.println("MAIL DEBUG - STOP: JavaMailSender unavailable");
             log.warn("Skipping availability approval email for activity {} because mail sender is unavailable.", activity.getId());
+            System.out.println("========== MAIL DEBUG END ==========");
             return;
         }
 
         SimpleMailMessage message = new SimpleMailMessage();
+
         if (StringUtils.hasText(workflowMailProperties.getSender())) {
             message.setFrom(workflowMailProperties.getSender().trim());
         }
+
         message.setTo(recipients.toArray(String[]::new));
         message.setSubject(buildSubject(activity));
         message.setText(buildBody(activity, departmentHead));
 
+        System.out.println("MAIL DEBUG - from = " + workflowMailProperties.getSender());
+        System.out.println("MAIL DEBUG - to = " + recipients);
+        System.out.println("MAIL DEBUG - subject = " + message.getSubject());
+        System.out.println("MAIL DEBUG - sending email...");
+
         try {
             mailSender.send(message);
+            System.out.println("MAIL DEBUG - SUCCESS: email sent");
             log.info("Availability approval email sent for activity {} to {}.", activity.getId(), recipients);
         } catch (MailException exception) {
+            System.out.println("MAIL DEBUG - FAILED: email not sent");
+            exception.printStackTrace();
             log.warn(
                 "Failed to send availability approval email for activity {} to {}: {}",
                 activity.getId(),
@@ -59,6 +82,8 @@ public class WorkflowMailService {
                 exception.getMessage()
             );
         }
+
+        System.out.println("========== MAIL DEBUG END ==========");
     }
 
     private String buildSubject(AvailabilityRequestActivity activity) {

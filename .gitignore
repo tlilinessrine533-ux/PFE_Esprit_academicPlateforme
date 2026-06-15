@@ -22,3 +22,22 @@ __pycache__/
 
 # Env
 .env
+
+# Local DB data
+.local-mysql-data/
+
+# Compiled classes
+*.class
+
+# Archives / diagrams exports
+*.zip
+*.png
+PNG_A_TELECHARGER/
+PNG_HD_A_TELECHARGER/
+
+# Maven local repo inside backend
+backend/.m2/
+backend/...m2repository/
+
+# Misc local files
+structure.txt

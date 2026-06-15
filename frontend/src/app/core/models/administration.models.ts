@@ -2,8 +2,7 @@ export type AdministrativeDecisionStatus = 'EN_ATTENTE' | 'VALIDE' | 'REJETE';
 export type AdministrativeDecisionAction = 'VALIDE' | 'REJETE';
 
 export interface AdministrationConfig {
-  bonusBaseAmount: number;
-  bonusAmountPerPoint: number;
+  referencePoints: number;
   bonusAbsencePenaltyPerDay: number;
   promotionTeachingPointFactor: number;
   teachingActivityPoint: number;
@@ -12,12 +11,11 @@ export interface AdministrationConfig {
   eventActivityPoint: number;
   examSurveillanceActivityPoint: number;
   responsibilityActivityPoint: number;
-  availabilityActivityPoint: number;
+  totalPrimeAmount: number;
 }
 
 export interface AdministrationConfigUpdateRequest {
-  bonusBaseAmount: number;
-  bonusAmountPerPoint: number;
+  referencePoints: number;
   bonusAbsencePenaltyPerDay: number;
   promotionTeachingPointFactor: number;
   teachingActivityPoint: number;
@@ -26,7 +24,7 @@ export interface AdministrationConfigUpdateRequest {
   eventActivityPoint: number;
   examSurveillanceActivityPoint: number;
   responsibilityActivityPoint: number;
-  availabilityActivityPoint: number;
+  totalPrimeAmount: number;
 }
 
 export interface AdministrativeEvaluationResponse {
@@ -38,6 +36,7 @@ export interface AdministrativeEvaluationResponse {
   validatedTeachingPoints: number;
   absenceDays: number;
   activityTypePoints: number;
+  calculatedWeight: number;
   calculatedBonus: number;
   calculatedPromotionPoints: number;
   decisionStatus: AdministrativeDecisionStatus;
@@ -83,4 +82,3 @@ export interface AbsenceSummaryResponse {
   pendingAbsenceDays: number;
   rejectedAbsenceDays: number;
 }
-

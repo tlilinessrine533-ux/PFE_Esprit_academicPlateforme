@@ -41,56 +41,72 @@
         <p class="eyebrow">Configuration</p>
         <h2 class="section-title">Regles de calcul</h2>
       </div>
-      <button class="primary-button" type="button" (click)="saveConfiguration()" [disabled]="configSaving()">
-        {{ configSaving() ? 'Enregistrement...' : 'Enregistrer la configuration' }}
-      </button>
+      <div class="section-header-actions">
+        <button class="ghost-button" type="button" (click)="toggleManualConfigEntry()" [disabled]="configSaving()">
+          {{ manualConfigEntryEnabled() ? 'Verrouiller la saisie' : 'Activer la saisie manuelle' }}
+        </button>
+        <button class="primary-button" type="button" (click)="saveConfiguration()" [disabled]="configSaving()">
+          {{ configSaving() ? 'Enregistrement...' : 'Enregistrer la configuration' }}
+        </button>
+      </div>
     </div>
+
+    <p class="manual-entry-hint">
+      {{ manualConfigEntryEnabled()
+        ? "Saisie manuelle activee: toutes les zones ci-dessous sont modifiables et enregistrees ensemble."
+        : "Saisie manuelle verrouillee: activez-la pour modifier les champs." }}
+    </p>
 
     <form class="config-grid" [formGroup]="configForm">
       <label class="field">
-        <span>Base bonus</span>
-        <input formControlName="bonusBaseAmount" type="number" min="0" step="0.01" />
-      </label>
-      <label class="field">
-        <span>Bonus par point</span>
-        <input formControlName="bonusAmountPerPoint" type="number" min="0" step="0.01" />
+        <span>Nombre de points repere</span>
+        <input formControlName="referencePoints" type="text" inputmode="decimal" autocomplete="off" [readonly]="!manualConfigEntryEnabled()" (keydown)="onNumericKeydown($event)" (input)="onNumericInput($event, 'referencePoints')" />
       </label>
       <label class="field">
         <span>Penalite par jour d'absence</span>
-        <input formControlName="bonusAbsencePenaltyPerDay" type="number" min="0" step="0.01" />
+        <input formControlName="bonusAbsencePenaltyPerDay" type="text" inputmode="decimal" autocomplete="off" [readonly]="!manualConfigEntryEnabled()" (keydown)="onNumericKeydown($event)" (input)="onNumericInput($event, 'bonusAbsencePenaltyPerDay')" />
       </label>
       <label class="field">
         <span>Facteur points enseignement (promotion)</span>
-        <input formControlName="promotionTeachingPointFactor" type="number" min="0" step="0.01" />
+        <input formControlName="promotionTeachingPointFactor" type="text" inputmode="decimal" autocomplete="off" [readonly]="!manualConfigEntryEnabled()" (keydown)="onNumericKeydown($event)" (input)="onNumericInput($event, 'promotionTeachingPointFactor')" />
       </label>
       <label class="field">
         <span>Points activite enseignement</span>
-        <input formControlName="teachingActivityPoint" type="number" min="0" step="0.01" />
+        <input formControlName="teachingActivityPoint" type="text" inputmode="decimal" autocomplete="off" [readonly]="!manualConfigEntryEnabled()" (keydown)="onNumericKeydown($event)" (input)="onNumericInput($event, 'teachingActivityPoint')" />
       </label>
       <label class="field">
         <span>Points activite encadrement</span>
-        <input formControlName="supervisionActivityPoint" type="number" min="0" step="0.01" />
+        <input formControlName="supervisionActivityPoint" type="text" inputmode="decimal" autocomplete="off" [readonly]="!manualConfigEntryEnabled()" (keydown)="onNumericKeydown($event)" (input)="onNumericInput($event, 'supervisionActivityPoint')" />
       </label>
       <label class="field">
         <span>Points activite recherche</span>
-        <input formControlName="researchActivityPoint" type="number" min="0" step="0.01" />
+        <input formControlName="researchActivityPoint" type="text" inputmode="decimal" autocomplete="off" [readonly]="!manualConfigEntryEnabled()" (keydown)="onNumericKeydown($event)" (input)="onNumericInput($event, 'researchActivityPoint')" />
       </label>
       <label class="field">
         <span>Points activite evenement</span>
-        <input formControlName="eventActivityPoint" type="number" min="0" step="0.01" />
+        <input formControlName="eventActivityPoint" type="text" inputmode="decimal" autocomplete="off" [readonly]="!manualConfigEntryEnabled()" (keydown)="onNumericKeydown($event)" (input)="onNumericInput($event, 'eventActivityPoint')" />
       </label>
       <label class="field">
         <span>Points activite surveillance</span>
-        <input formControlName="examSurveillanceActivityPoint" type="number" min="0" step="0.01" />
+        <input formControlName="examSurveillanceActivityPoint" type="text" inputmode="decimal" autocomplete="off" [readonly]="!manualConfigEntryEnabled()" (keydown)="onNumericKeydown($event)" (input)="onNumericInput($event, 'examSurveillanceActivityPoint')" />
       </label>
       <label class="field">
         <span>Points activite responsabilite</span>
-        <input formControlName="responsibilityActivityPoint" type="number" min="0" step="0.01" />
+        <input formControlName="responsibilityActivityPoint" type="text" inputmode="decimal" autocomplete="off" [readonly]="!manualConfigEntryEnabled()" (keydown)="onNumericKeydown($event)" (input)="onNumericInput($event, 'responsibilityActivityPoint')" />
       </label>
-      <label class="field">
-        <span>Points activite disponibilite</span>
-        <input formControlName="availabilityActivityPoint" type="number" min="0" step="0.01" />
-      </label>
+
+      <div class="prime-configuration-shell">
+        <article class="prime-insight-card">
+          <p class="eyebrow">Poids cumules</p>
+          <strong>{{ globalWeightTotal() | number: '1.0-6' }}</strong>
+          <small>Somme automatique des poids de tous les enseignants sur la periode.</small>
+        </article>
+
+        <label class="field prime-budget-field">
+          <span>Total primes a distribuer (DT)</span>
+          <input formControlName="totalPrimeAmount" type="text" inputmode="decimal" autocomplete="off" [readonly]="!manualConfigEntryEnabled()" (keydown)="onNumericKeydown($event)" (input)="onNumericInput($event, 'totalPrimeAmount')" />
+        </label>
+      </div>
     </form>
   </section>
 
@@ -120,7 +136,8 @@
 
     <div class="kpi-list">
       <span><strong>Activites validees :</strong> {{ validatedActivitiesTotal() }}</span>
-      <span><strong>Total bonus :</strong> {{ bonusTotal() | number: '1.0-2' }}</span>
+      <span><strong>Total poids :</strong> {{ globalWeightTotal() | number: '1.0-6' }}</span>
+      <span><strong>Total primes calculees :</strong> {{ bonusTotal() | number: '1.0-2' }} DT</span>
       <span><strong>Total points promotion :</strong> {{ promotionPointsTotal() | number: '1.0-2' }}</span>
     </div>
 
@@ -188,7 +205,8 @@
               <th>Points enseignement</th>
               <th>Jours absence</th>
               <th>Points activites</th>
-              <th>Bonus calcule</th>
+              <th>Poids calcule</th>
+              <th>Prime calculee</th>
               <th>Points promotion</th>
               <th>Decision</th>
               <th class="col-actions">Actions</th>
@@ -203,6 +221,7 @@
                 <td>{{ item.validatedTeachingPoints | number: '1.0-2' }}</td>
                 <td>{{ item.absenceDays }}</td>
                 <td>{{ item.activityTypePoints | number: '1.0-2' }}</td>
+                <td>{{ evaluationWeightForView(item) | number: '1.0-6' }}</td>
                 <td>{{ item.calculatedBonus | number: '1.0-2' }}</td>
                 <td>{{ item.calculatedPromotionPoints | number: '1.0-2' }}</td>
                 <td>
@@ -324,7 +343,7 @@
             <div class="history-card__meta">
               <span><strong>Departement :</strong> {{ item.departmentName ?? '-' }}</span>
               <span><strong>Periode :</strong> {{ item.periodLabel }}</span>
-              <span><strong>Bonus :</strong> {{ item.calculatedBonus | number: '1.0-2' }}</span>
+              <span><strong>Prime :</strong> {{ item.calculatedBonus | number: '1.0-2' }}</span>
               <span><strong>Promotion :</strong> {{ item.calculatedPromotionPoints | number: '1.0-2' }}</span>
               <span><strong>Decide par :</strong> {{ item.decidedByName ?? '-' }}</span>
               <span><strong>Date :</strong> {{ item.decidedAt ? (item.decidedAt | date: 'dd/MM/yyyy HH:mm') : '-' }}</span>

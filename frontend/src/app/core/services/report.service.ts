@@ -1,7 +1,7 @@
 import { HttpClient, HttpHeaders, HttpParams, HttpResponse } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
 import { Observable } from 'rxjs';
-import { ReportResponse } from '../models/report.models';
+import { GenerateIndividualReportPayload, ReportResponse } from '../models/report.models';
 
 @Injectable({ providedIn: 'root' })
 export class ReportService {
@@ -11,17 +11,19 @@ export class ReportService {
     return this.http.get<ReportResponse[]>('/api/reports');
   }
 
-  generatePdf(periodLabel: string) {
-    return this.http.post('/api/reports/individual/pdf', null, {
-      params: new HttpParams().set('periodLabel', periodLabel),
+  getIndividualAcademicYears() {
+    return this.http.get<string[]>('/api/reports/individual/academic-years');
+  }
+
+  generatePdf(payload: GenerateIndividualReportPayload) {
+    return this.http.post('/api/reports/individual/pdf', payload, {
       observe: 'response',
       responseType: 'blob'
     });
   }
 
-  generateExcel(periodLabel: string) {
-    return this.http.post('/api/reports/individual/excel', null, {
-      params: new HttpParams().set('periodLabel', periodLabel),
+  generateExcel(payload: GenerateIndividualReportPayload) {
+    return this.http.post('/api/reports/individual/excel', payload, {
       observe: 'response',
       responseType: 'blob'
     });

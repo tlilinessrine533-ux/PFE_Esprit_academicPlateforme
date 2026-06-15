@@ -20,6 +20,8 @@ import com.esprit.academicplatform.common.enums.SupervisionType;
 import com.esprit.academicplatform.common.enums.TypeRapport;
 import com.esprit.academicplatform.department.Department;
 import com.esprit.academicplatform.department.DepartmentRepository;
+import com.esprit.academicplatform.reporting.dto.FutureObjectiveRequest;
+import com.esprit.academicplatform.reporting.dto.GenerateIndividualReportRequest;
 import com.esprit.academicplatform.notification.NotificationService;
 import com.esprit.academicplatform.reporting.dto.ReportResponse;
 import com.esprit.academicplatform.user.User;
@@ -47,7 +49,11 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
+import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.List;
+import java.util.Set;
+import java.util.TreeSet;
 import lombok.RequiredArgsConstructor;
 import org.apache.poi.ss.usermodel.BorderStyle;
 import org.apache.poi.ss.usermodel.Cell;
@@ -138,10 +144,44 @@ public class ReportService {
             .toList();
     }
 
-    @Transactional
-    public GeneratedReport generateIndividualPdf(String periodLabel, String currentUserEmail) {
+    @Transactional(readOnly = true)
+    public List<String> getIndividualAcademicYears(String currentUserEmail) {
         User currentUser = findCurrentUser(currentUserEmail);
-        IndividualReportData data = buildIndividualReportData(currentUser, periodLabel);
+        if (currentUser.getRole() != RoleType.ENSEIGNANT) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Acces reserve au rapport individuel enseignant");
+        }
+
+        Set<String> academicYears = new TreeSet<>(Comparator.reverseOrder());
+
+        teachingActivityRepository.findByUserIdOrderByCreatedAtDesc(currentUser.getId())
+            .forEach(activity -> addAcademicYear(academicYears, activity.getAcademicYear()));
+        supervisionActivityRepository.findByUserIdOrderByCreatedAtDesc(currentUser.getId())
+            .forEach(activity -> addAcademicYear(academicYears, activity.getAcademicYear()));
+        researchActivityRepository.findByUserIdOrderByCreatedAtDesc(currentUser.getId())
+            .forEach(activity -> addAcademicYear(academicYears, activity.getAcademicYear()));
+        eventActivityRepository.findByUserIdOrderByCreatedAtDesc(currentUser.getId())
+            .forEach(activity -> addAcademicYear(academicYears, activity.getAcademicYear()));
+        examSurveillanceActivityRepository.findByUserIdOrderByCreatedAtDesc(currentUser.getId())
+            .forEach(activity -> addAcademicYear(academicYears, activity.getAcademicYear()));
+        responsibilityActivityRepository.findByUserIdOrderByCreatedAtDesc(currentUser.getId())
+            .forEach(activity -> addAcademicYear(academicYears, activity.getAcademicYear()));
+
+        if (academicYears.isEmpty()) {
+            academicYears.add(resolveCurrentAcademicYearLabel());
+        }
+
+        return new ArrayList<>(academicYears);
+    }
+
+    @Transactional
+    public GeneratedReport generateIndividualPdf(GenerateIndividualReportRequest request, String currentUserEmail) {
+        User currentUser = findCurrentUser(currentUserEmail);
+        String periodLabel = request.periodLabel().trim();
+        IndividualReportData data = buildIndividualReportData(
+            currentUser,
+            periodLabel,
+            toQuestionnaire(request.appreciationLevel(), request.futureObjectives())
+        );
         String generatedSuffix = FILE_DATE_FORMAT.format(LocalDateTime.now());
 
         try {
@@ -169,9 +209,14 @@ public class ReportService {
     }
 
     @Transactional
-    public GeneratedReport generateIndividualExcel(String periodLabel, String currentUserEmail) {
+    public GeneratedReport generateIndividualExcel(GenerateIndividualReportRequest request, String currentUserEmail) {
         User currentUser = findCurrentUser(currentUserEmail);
-        IndividualReportData data = buildIndividualReportData(currentUser, periodLabel);
+        String periodLabel = request.periodLabel().trim();
+        IndividualReportData data = buildIndividualReportData(
+            currentUser,
+            periodLabel,
+            toQuestionnaire(request.appreciationLevel(), request.futureObjectives())
+        );
 
         try {
             byte[] content = buildExcel(data);
@@ -322,20 +367,8 @@ public class ReportService {
             throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Accès refusé à ce rapport");
         }
 
-        if (report.getReportType() == TypeRapport.INDIVIDUEL_ANNUEL && report.getReportFormat() == FormatRapport.PDF) {
-            User targetUser = report.getTargetUser() != null ? report.getTargetUser() : currentUser;
-            IndividualReportData data = buildIndividualReportData(targetUser, report.getPeriodLabel());
-
-            try {
-                byte[] content = buildPdf(data);
-                String filename = "rapport_individuel_" + report.getPeriodLabel() + "_" + FILE_DATE_FORMAT.format(LocalDateTime.now()) + ".pdf";
-                return new GeneratedReport(report.getId(), filename, "application/pdf", content);
-            } catch (IOException | DocumentException exception) {
-                throw new ResponseStatusException(
-                    HttpStatus.INTERNAL_SERVER_ERROR,
-                    "Regeneration du rapport individuel PDF impossible"
-                );
-            }
+        if (!StringUtils.hasText(report.getFilePath())) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Fichier du rapport introuvable");
         }
 
         Path filePath = resolveStoredFile(report.getFilePath());
@@ -389,7 +422,11 @@ public class ReportService {
         return new GeneratedReport(report.getId(), downloadName, contentType, content);
     }
 
-    private IndividualReportData buildIndividualReportData(User currentUser, String periodLabel) {
+    private IndividualReportData buildIndividualReportData(
+        User currentUser,
+        String periodLabel,
+        IndividualReportQuestionnaire questionnaire
+    ) {
         List<TeachingActivity> teachings = teachingActivityRepository.findByUserIdOrderByCreatedAtDesc(currentUser.getId())
             .stream()
             .filter(activity -> periodLabel.equals(activity.getAcademicYear()))
@@ -450,6 +487,7 @@ public class ReportService {
         return new IndividualReportData(
             currentUser,
             periodLabel,
+            questionnaire,
             teachings,
             supervisions,
             researches,
@@ -1045,7 +1083,7 @@ public class ReportService {
             document.add(buildEvaluationObjectiveReviewTable(data, theme));
 
             addEvaluationSubHeading(document, "4. Appreciation globale", theme);
-            document.add(buildEvaluationScaleTable(theme));
+            document.add(buildEvaluationScaleTable(data, theme));
 
             addEvaluationSectionHeading(document, "B. Objectifs pour l'annee a venir", theme);
             Paragraph objectiveIntro = new Paragraph(
@@ -1563,7 +1601,8 @@ public class ReportService {
         table.addCell(createEvaluationCell(observation, theme.body(), Color.WHITE, Element.ALIGN_LEFT));
     }
 
-    private PdfPTable buildEvaluationScaleTable(PdfTheme theme) throws DocumentException {
+    private PdfPTable buildEvaluationScaleTable(IndividualReportData data, PdfTheme theme) throws DocumentException {
+        int selectedLevel = data.questionnaire().appreciationLevel();
         PdfPTable table = new PdfPTable(new float[] { 1f, 1f, 1f, 1f, 1f });
         table.setWidthPercentage(100);
         table.setSpacingAfter(10f);
@@ -1574,36 +1613,12 @@ public class ReportService {
         table.addCell(createEvaluationCell("4/ Tres satisfaisant", theme.tableHeader(), ESPRIT_RED, Element.ALIGN_CENTER));
         table.addCell(createEvaluationCell("5/ Exceptionnel", theme.tableHeader(), ESPRIT_RED, Element.ALIGN_CENTER));
 
-        table.addCell(createEvaluationCell(
-            "Ne repond pas de maniere adequate aux attentes essentielles.",
-            theme.small(),
-            ESPRIT_SOFT,
-            Element.ALIGN_LEFT
-        ));
-        table.addCell(createEvaluationCell(
-            "Atteint les attentes de base avec des ameliorations necessaires.",
-            theme.small(),
-            Color.WHITE,
-            Element.ALIGN_LEFT
-        ));
-        table.addCell(createEvaluationCell(
-            "Atteint les attentes de maniere fiable sur les domaines cles.",
-            theme.small(),
-            ESPRIT_SOFT,
-            Element.ALIGN_LEFT
-        ));
-        table.addCell(createEvaluationCell(
-            "Depasse souvent les attentes et contribue au rayonnement de l'ecole.",
-            theme.small(),
-            Color.WHITE,
-            Element.ALIGN_LEFT
-        ));
-        table.addCell(createEvaluationCell(
-            "Surpasse constamment les attentes sur tous les aspects de ses fonctions.",
-            theme.small(),
-            ESPRIT_SOFT,
-            Element.ALIGN_LEFT
-        ));
+        Font checkIconFont = FontFactory.getFont(FontFactory.ZAPFDINGBATS, 18, ESPRIT_BLACK);
+        for (int level = 1; level <= 5; level++) {
+            boolean selected = selectedLevel == level;
+            String selectedText = selected ? "3" : "";
+            table.addCell(createEvaluationCell(selectedText, selected ? checkIconFont : theme.bodyStrong(), Color.WHITE, Element.ALIGN_CENTER));
+        }
         return table;
     }
 
@@ -1627,64 +1642,89 @@ public class ReportService {
             Element.ALIGN_LEFT
         ));
 
-        java.util.List<String[]> rows = List.of(
-            new String[] {
-                "Travail de recherche en cours:\nEn collaboration avec mon directeur de these, Houssem Haddar et Thi Phong Nguyen, "
-                    + "nous travaillons sur une nouvelle publication dans la continuite de l'article publie en 2025.",
-                "Objectif presque atteint, article en cours de redaction.",
-                "Encadrement scientifique + temps de recherche.",
-                "Resultat attendu: Publication scientifique."
-            },
-            new String[] {
-                "Travail de recherche en cours:\nProjet de validation numerique d'un travail publie par Mourad Bellassoued, "
-                    + "Chaima Moufid et Masahiro Yamamoto (2019).",
-                "Partie litterature : realisee.\nPartie application numerique : en cours / au debut.",
-                "Ressources de calcul + collaboration equipe.",
-                "Validation numerique finalisee."
-            },
-            new String[] {
-                "Travail de recherche a planifier:\nProjet University Sustainability Performance Index "
-                    + "en collaboration avec Hela Hammami, Chaima Moufid et Aymen Ben Brik.",
-                "En partie litterature.",
-                "Cadre de modelisation dynamique + coordination.",
-                "Article scientifique complet soumis."
-            },
-            new String[] {
-                "Participation a la comite d'organisation de la journee scientifique et du Hackathon AIXCYBER2025."
-                    + "\nSynthese periode " + data.periodLabel() + " : enseignements " + data.teachings().size()
-                    + ", encadrements " + data.supervisions().size() + ", recherches " + data.researches().size() + ".",
-                "Annuel",
-                "Implication continue dans la vie de l'Ecole.",
-                "Contribution visible dans les activites collectives."
-            }
-        );
-
-        for (String[] row : rows) {
-            table.addCell(createEvaluationCell(row[0], theme.body(), Color.WHITE, Element.ALIGN_LEFT));
-            table.addCell(createEvaluationCell(row[1], theme.bodyStrong(), ESPRIT_SOFT, Element.ALIGN_CENTER));
-            table.addCell(createEvaluationCell(row[2], theme.body(), Color.WHITE, Element.ALIGN_LEFT));
-            table.addCell(createEvaluationCell(row[3], theme.body(), ESPRIT_SOFT, Element.ALIGN_LEFT));
+        List<FutureObjectiveRow> rows = buildNextObjectiveRows(data);
+        for (FutureObjectiveRow row : rows) {
+            table.addCell(createEvaluationCell(row.objective(), theme.body(), Color.WHITE, Element.ALIGN_LEFT));
+            table.addCell(createEvaluationCell(row.timeline(), theme.bodyStrong(), ESPRIT_SOFT, Element.ALIGN_CENTER));
+            table.addCell(createEvaluationCell(row.requiredResources(), theme.body(), Color.WHITE, Element.ALIGN_LEFT));
+            table.addCell(createEvaluationCell(row.successIndicators(), theme.body(), ESPRIT_SOFT, Element.ALIGN_LEFT));
         }
         return table;
     }
 
+    private List<FutureObjectiveRow> buildNextObjectiveRows(IndividualReportData data) {
+        List<FutureObjectiveRow> rows = new ArrayList<>();
+        String nextPeriod = resolveNextPeriodLabel(data.periodLabel());
+        long totalTeachings = data.teachings().size();
+        long totalSupervisions = data.supervisions().size();
+        long totalResearches = data.researches().size();
+        long totalEvents = data.events().size();
+        long totalSurveillances = data.surveillances().size();
+        long totalResponsibilities = data.responsibilities().size();
+        long declaredActivities = totalTeachings
+            + totalSupervisions
+            + totalResearches
+            + totalEvents
+            + totalSurveillances
+            + totalResponsibilities;
+        long indexedResearches = data.totalIndexedResearch();
+
+        rows.add(new FutureObjectiveRow(
+            "Capitaliser sur le bilan reel " + data.periodLabel()
+                + " (enseignements: " + totalTeachings
+                + ", encadrements: " + totalSupervisions
+                + ", recherches: " + totalResearches
+                + ", evenements: " + totalEvents
+                + ", surveillances: " + totalSurveillances
+                + ", responsabilites: " + totalResponsibilities + ").",
+            "Annee " + nextPeriod,
+            "Conserver les actions deja engagees sur la plateforme et renforcer les ressources selon les besoins reels du compte.",
+            "Maintenir ou augmenter les indicateurs: activites totales >= " + Math.max(declaredActivities, 1)
+                + ", recherches indexees >= " + Math.max(indexedResearches, 1) + "."
+        ));
+
+        List<FutureObjectiveRow> customRows = data.questionnaire().futureObjectives().stream()
+            .map(objective -> new FutureObjectiveRow(
+                objective.objective(),
+                objective.timeline(),
+                objective.requiredResources(),
+                objective.successIndicators()
+            ))
+            .toList();
+        rows.addAll(customRows);
+
+        return rows;
+    }
+
+    private String resolveNextPeriodLabel(String periodLabel) {
+        if (!StringUtils.hasText(periodLabel)) {
+            return "suivante";
+        }
+
+        java.util.regex.Matcher matcher = java.util.regex.Pattern.compile("^(\\d{4})\\s*-\\s*(\\d{4})$").matcher(periodLabel.trim());
+        if (!matcher.matches()) {
+            return "suivante";
+        }
+
+        int startYear = Integer.parseInt(matcher.group(1));
+        int endYear = Integer.parseInt(matcher.group(2));
+        return (startYear + 1) + "-" + (endYear + 1);
+    }
+
+    private IndividualReportQuestionnaire toQuestionnaire(Integer appreciationLevel, List<FutureObjectiveRequest> futureObjectives) {
+        List<FutureObjectiveRow> objectives = futureObjectives.stream()
+            .map(objective -> new FutureObjectiveRow(
+                objective.objective().trim(),
+                objective.timeline().trim(),
+                objective.requiredResources().trim(),
+                objective.successIndicators().trim()
+            ))
+            .toList();
+
+        return new IndividualReportQuestionnaire(appreciationLevel, objectives);
+    }
+
     private PdfPTable buildEvaluationManagerCommentsTable(IndividualReportData data, PdfTheme theme) throws DocumentException {
-        String strengths = "Volume realise: " + formatDecimal(data.totalCompletedHours()) + " h | "
-            + "Recherches: " + data.researches().size() + " | Encadrements soutenus: " + data.totalSupported();
-        String satisfactions = "Evenements: " + data.events().size() + " | Responsabilites: " + data.responsibilities().size()
-            + " | Surveillances: " + data.surveillances().size();
-
-        long academicSupervisions = data.supervisions().stream()
-            .filter(supervision -> supervision.getSupervisionType() == SupervisionType.PFE_ENCADREMENT_ACADEMIQUE)
-            .count();
-        long jurySupervisions = data.supervisions().stream()
-            .filter(supervision -> supervision.getRoleInJury() != null
-                && ("RAPPORTEUR".equals(supervision.getRoleInJury().name())
-                || "PRESIDENT_JURY".equals(supervision.getRoleInJury().name())))
-            .count();
-        String progress = "Points de progression: equilibrer academique (" + academicSupervisions + ") et jury (" + jurySupervisions + ")"
-            + ", renforcer indexation (" + data.totalIndexedResearch() + "/" + Math.max(data.totalArticles(), 1L) + ").";
-
         PdfPTable table = new PdfPTable(new float[] { 1.5f, 4.5f });
         table.setWidthPercentage(100);
         table.setSpacingAfter(10f);
@@ -1697,11 +1737,11 @@ public class ReportService {
             Element.ALIGN_LEFT
         ));
         table.addCell(createEvaluationCell("Points forts", theme.bodyStrong(), ESPRIT_SOFT, Element.ALIGN_LEFT));
-        table.addCell(createEvaluationCell(strengths, theme.body(), Color.WHITE, Element.ALIGN_LEFT));
+        table.addCell(createEvaluationCell("", theme.body(), Color.WHITE, Element.ALIGN_LEFT));
         table.addCell(createEvaluationCell("Points satisfaisants", theme.bodyStrong(), ESPRIT_SOFT, Element.ALIGN_LEFT));
-        table.addCell(createEvaluationCell(satisfactions, theme.body(), Color.WHITE, Element.ALIGN_LEFT));
+        table.addCell(createEvaluationCell("", theme.body(), Color.WHITE, Element.ALIGN_LEFT));
         table.addCell(createEvaluationCell("Points de progression possible", theme.bodyStrong(), ESPRIT_SOFT, Element.ALIGN_LEFT));
-        table.addCell(createEvaluationCell(progress, theme.body(), Color.WHITE, Element.ALIGN_LEFT));
+        table.addCell(createEvaluationCell("", theme.body(), Color.WHITE, Element.ALIGN_LEFT));
 
         return table;
     }
@@ -1818,6 +1858,17 @@ public class ReportService {
             return "Partiel";
         }
         return "A renforcer";
+    }
+
+    private String resolveAppreciationLevelLabel(int level) {
+        return switch (level) {
+            case 1 -> "1 / Insatisfaisant";
+            case 2 -> "2 / A ameliorer";
+            case 3 -> "3 / Satisfaisant";
+            case 4 -> "4 / Tres satisfaisant";
+            case 5 -> "5 / Exceptionnel";
+            default -> "Non renseigne";
+        };
     }
 
     private String buildUserDisplayName(User user) {
@@ -2336,6 +2387,7 @@ public class ReportService {
         try (XSSFWorkbook workbook = new XSSFWorkbook(); ByteArrayOutputStream outputStream = new ByteArrayOutputStream()) {
             ExcelTheme theme = createExcelTheme(workbook);
             buildSummarySheet(workbook, theme, data);
+            buildIndividualEvaluationSheet(workbook, theme, data);
             buildTeachingSheet(workbook, theme, data);
             buildSupervisionSheet(workbook, theme, data);
             buildResearchSheet(workbook, theme, data);
@@ -2374,6 +2426,10 @@ public class ReportService {
 
     private void buildTeachingSheet(XSSFWorkbook workbook, IndividualReportData data) {
         buildTeachingSheet(workbook, createExcelTheme(workbook), data);
+    }
+
+    private void buildIndividualEvaluationSheet(XSSFWorkbook workbook, IndividualReportData data) {
+        buildIndividualEvaluationSheet(workbook, createExcelTheme(workbook), data);
     }
 
     private void buildSupervisionSheet(XSSFWorkbook workbook, IndividualReportData data) {
@@ -2605,6 +2661,50 @@ public class ReportService {
             theme
         );
         finalizeSummarySheet(sheet, 4);
+    }
+
+    private void buildIndividualEvaluationSheet(XSSFWorkbook workbook, ExcelTheme theme, IndividualReportData data) {
+        Sheet sheet = workbook.createSheet("Entretien");
+        int rowIndex = initializeSheetHeader(
+            sheet,
+            theme,
+            "Entretien professionnel",
+            data.user().getFirstName() + " " + data.user().getLastName() + " | " + data.periodLabel(),
+            3
+        );
+
+        rowIndex = writeSectionTitle(sheet, rowIndex, 3, "Appreciation globale", theme);
+        List<String[]> appreciationRows = List.of(
+            new String[] { "Niveau choisi", resolveAppreciationLevelLabel(data.questionnaire().appreciationLevel()) },
+            new String[] { "Annee universitaire", data.periodLabel() }
+        );
+        writeTable(
+            sheet,
+            rowIndex,
+            new String[] { "Critere", "Valeur" },
+            appreciationRows,
+            theme
+        );
+        rowIndex += appreciationRows.size() + 2;
+
+        rowIndex = writeSectionTitle(sheet, rowIndex, 3, "Objectifs pour l'annee a venir", theme);
+        List<String[]> objectiveRows = buildNextObjectiveRows(data).stream()
+            .map(objective -> new String[] {
+                objective.objective(),
+                objective.timeline(),
+                objective.requiredResources(),
+                objective.successIndicators()
+            })
+            .toList();
+        writeTable(
+            sheet,
+            rowIndex,
+            new String[] { "Objectifs", "Delais", "Moyens necessaires", "Indicateurs" },
+            objectiveRows,
+            theme
+        );
+
+        finalizeDataSheet(sheet, 4);
     }
 
     private void buildTeachingSheet(XSSFWorkbook workbook, ExcelTheme theme, IndividualReportData data) {
@@ -3014,6 +3114,19 @@ public class ReportService {
         return StringUtils.hasText(value) ? value : "-";
     }
 
+    private void addAcademicYear(Set<String> years, String academicYear) {
+        if (StringUtils.hasText(academicYear)) {
+            years.add(academicYear.trim());
+        }
+    }
+
+    private String resolveCurrentAcademicYearLabel() {
+        LocalDateTime now = LocalDateTime.now();
+        int year = now.getYear();
+        int startYear = now.getMonthValue() >= 8 ? year : year - 1;
+        return startYear + "-" + (startYear + 1);
+    }
+
     private String humanize(String value) {
         return safeValue(value).replace('_', ' ');
     }
@@ -3155,9 +3268,24 @@ public class ReportService {
         return value.toLowerCase().replaceAll("[^a-z0-9]+", "_").replaceAll("^_|_$", "");
     }
 
+    private record IndividualReportQuestionnaire(
+        int appreciationLevel,
+        List<FutureObjectiveRow> futureObjectives
+    ) {
+    }
+
+    private record FutureObjectiveRow(
+        String objective,
+        String timeline,
+        String requiredResources,
+        String successIndicators
+    ) {
+    }
+
     private record IndividualReportData(
         User user,
         String periodLabel,
+        IndividualReportQuestionnaire questionnaire,
         List<TeachingActivity> teachings,
         List<SupervisionActivity> supervisions,
         List<ResearchActivity> researches,

@@ -2,6 +2,19 @@ export type ReportType = 'INDIVIDUEL_ANNUEL' | 'SEMESTRIEL' | 'PROMOTION_ACADEMI
 
 export type ReportFormat = 'PDF' | 'EXCEL';
 
+export interface FutureObjectiveInput {
+  objective: string;
+  timeline: string;
+  requiredResources: string;
+  successIndicators: string;
+}
+
+export interface GenerateIndividualReportPayload {
+  periodLabel: string;
+  appreciationLevel: number;
+  futureObjectives: FutureObjectiveInput[];
+}
+
 export interface ReportResponse {
   id: number;
   reportType: ReportType;

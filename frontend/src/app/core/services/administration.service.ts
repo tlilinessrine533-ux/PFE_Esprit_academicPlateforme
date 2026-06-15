@@ -1,5 +1,7 @@
 import { HttpClient, HttpParams } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
+import { HttpErrorResponse } from '@angular/common/http';
+import { catchError, throwError } from 'rxjs';
 import {
   AbsenceSummaryResponse,
   AdministrationConfig,
@@ -18,7 +20,22 @@ export class AdministrationService {
   }
 
   updateConfiguration(payload: AdministrationConfigUpdateRequest) {
-    return this.http.put<AdministrationConfig>('/api/administration/config', payload);
+    return this.http.put<AdministrationConfig>('/api/administration/config', payload).pipe(
+      catchError((error: unknown) => {
+        if (!(error instanceof HttpErrorResponse) || error.status !== 400) {
+          return throwError(() => error);
+        }
+
+        const compatibilityPayload = {
+          ...payload,
+          bonusBaseAmount: payload.referencePoints,
+          bonusAmountPerPoint: 0,
+          availabilityActivityPoint: 0
+        };
+
+        return this.http.put<AdministrationConfig>('/api/administration/config', compatibilityPayload);
+      })
+    );
   }
 
   getEvaluations(periodLabel: string) {
@@ -43,4 +60,3 @@ export class AdministrationService {
     return this.http.get<AbsenceSummaryResponse[]>('/api/administration/absences', { params });
   }
 }
-

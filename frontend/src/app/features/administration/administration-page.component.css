@@ -44,6 +44,52 @@
   gap: 1rem;
 }
 
+.manual-entry-hint {
+  margin: 0 0 0.9rem;
+  color: var(--muted);
+  line-height: 1.5;
+}
+
+.config-grid input[readonly] {
+  cursor: not-allowed;
+  opacity: 0.78;
+}
+
+.prime-configuration-shell {
+  grid-column: 1 / -1;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.9rem;
+  margin-top: 0.35rem;
+  padding: 0.9rem;
+  border-radius: 16px;
+  border: 1px solid rgba(59, 130, 246, 0.2);
+  background: linear-gradient(145deg, rgba(15, 23, 42, 0.08), rgba(59, 130, 246, 0.08));
+}
+
+.prime-insight-card {
+  display: grid;
+  gap: 0.35rem;
+  padding: 0.85rem 0.95rem;
+  border-radius: 14px;
+  border: 1px solid rgba(148, 163, 184, 0.24);
+  background: rgba(15, 23, 42, 0.22);
+}
+
+.prime-insight-card strong {
+  font-size: 1.2rem;
+  line-height: 1.15;
+}
+
+.prime-insight-card small {
+  color: var(--muted);
+  line-height: 1.35;
+}
+
+.prime-budget-field {
+  margin-bottom: 0;
+}
+
 .search-field {
   min-width: 18rem;
   margin-bottom: 0;
@@ -101,7 +147,7 @@
 .data-table {
   width: 100%;
   border-collapse: collapse;
-  min-width: 980px;
+  min-width: 1080px;
 }
 
 .data-table th,
@@ -203,6 +249,10 @@
   .config-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
+
+  .prime-configuration-shell {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
 }
 
 @media (max-width: 900px) {
@@ -218,6 +268,10 @@
   }
 
   .config-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .prime-configuration-shell {
     grid-template-columns: 1fr;
   }
 

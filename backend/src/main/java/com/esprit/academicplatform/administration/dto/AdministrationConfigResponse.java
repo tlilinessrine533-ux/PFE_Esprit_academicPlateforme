@@ -3,8 +3,7 @@ package com.esprit.academicplatform.administration.dto;
 import java.math.BigDecimal;
 
 public record AdministrationConfigResponse(
-    BigDecimal bonusBaseAmount,
-    BigDecimal bonusAmountPerPoint,
+    BigDecimal referencePoints,
     BigDecimal bonusAbsencePenaltyPerDay,
     BigDecimal promotionTeachingPointFactor,
     BigDecimal teachingActivityPoint,
@@ -13,7 +12,6 @@ public record AdministrationConfigResponse(
     BigDecimal eventActivityPoint,
     BigDecimal examSurveillanceActivityPoint,
     BigDecimal responsibilityActivityPoint,
-    BigDecimal availabilityActivityPoint
+    BigDecimal totalPrimeAmount
 ) {
 }
-

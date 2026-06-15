@@ -94,6 +94,10 @@ public class DepartmentHeadScopeFilter extends OncePerRequestFilter {
             return true;
         }
 
+        if (HttpMethod.GET.matches(request.getMethod()) && "/api/administration/evaluations".equals(requestPath)) {
+            return true;
+        }
+
         if (isAssistantChatRequest(request.getMethod(), requestPath)) {
             return true;
         }

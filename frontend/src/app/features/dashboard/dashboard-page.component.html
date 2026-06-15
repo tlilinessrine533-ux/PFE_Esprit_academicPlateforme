@@ -28,31 +28,37 @@
       <article class="panel global-kpi-card global-kpi-card--brand">
         <div class="global-kpi-head"><span>Total utilisateurs</span><small>US</small></div>
         <strong class="global-kpi-value">{{ superAdminTotalUsers() }}</strong>
+        <span class="kpi-validity-badge" data-state="valide">Valide</span>
         <p class="global-kpi-note">Comptes enregistres sur la plateforme.</p>
       </article>
       <article class="panel global-kpi-card global-kpi-card--accent">
         <div class="global-kpi-head"><span>Utilisateurs actifs</span><small>AC</small></div>
         <strong class="global-kpi-value">{{ superAdminActiveUsers() }}</strong>
+        <span class="kpi-validity-badge" data-state="valide">Valide</span>
         <p class="global-kpi-note">Comptes actifs.</p>
       </article>
       <article class="panel global-kpi-card global-kpi-card--soft">
         <div class="global-kpi-head"><span>Departements</span><small>DP</small></div>
         <strong class="global-kpi-value">{{ superAdminDepartments() }}</strong>
+        <span class="kpi-validity-badge" data-state="valide">Valide</span>
         <p class="global-kpi-note">Structure organisationnelle.</p>
       </article>
       <article class="panel global-kpi-card global-kpi-card--ink">
         <div class="global-kpi-head"><span>Nombre roles</span><small>RL</small></div>
         <strong class="global-kpi-value">{{ superAdminRoles() }}</strong>
+        <span class="kpi-validity-badge" data-state="valide">Valide</span>
         <p class="global-kpi-note">Roles utilises en production.</p>
       </article>
       <article class="panel global-kpi-card global-kpi-card--accent">
         <div class="global-kpi-head"><span>Disponibilite plateforme</span><small>UP</small></div>
         <strong class="global-kpi-value">{{ formatRate(superAdminPlatformAvailability()) }}</strong>
+        <span class="kpi-validity-badge" data-state="valide">Valide</span>
         <p class="global-kpi-note">Disponibilite technique consolidee.</p>
       </article>
       <article class="panel global-kpi-card global-kpi-card--brand">
         <div class="global-kpi-head"><span>Taux erreurs systeme</span><small>ER</small></div>
         <strong class="global-kpi-value">{{ formatRate(superAdminErrorRate()) }}</strong>
+        <span class="kpi-validity-badge" data-state="valide">Valide</span>
         <p class="global-kpi-note">Alertes securite et incidents detectes.</p>
       </article>
     </section>
@@ -167,6 +173,9 @@
           <small>{{ card.icon }}</small>
         </div>
         <strong class="global-kpi-value">{{ card.value }}</strong>
+        @if (card.valueValidity) {
+          <span class="kpi-validity-badge" [attr.data-state]="card.valueValidity">{{ cardValidityLabel(card) }}</span>
+        }
         <p class="global-kpi-note">{{ card.note }}</p>
       </article>
     }
@@ -449,6 +458,9 @@
           <small>{{ card.icon }}</small>
         </div>
         <strong class="global-kpi-value">{{ card.value }}</strong>
+        @if (card.valueValidity) {
+          <span class="kpi-validity-badge" [attr.data-state]="card.valueValidity">{{ cardValidityLabel(card) }}</span>
+        }
         <p class="global-kpi-note">{{ card.note }}</p>
       </article>
     }
@@ -582,16 +594,33 @@
           <h2>{{ strategicBenchmarkChartTitle() }}</h2>
           <p>{{ strategicBenchmarkChartSubtitle() }}</p>
         </div>
-        <div class="strategic-metric-switch">
-          @for (option of strategicMetricOptions; track option.key) {
-            <button
-              class="ghost-button strategic-metric-button"
-              type="button"
-              [class.is-active]="strategicMetric() === option.key"
-              (click)="selectStrategicMetric(option.key)"
-            >
-              {{ option.label }}
-            </button>
+        <div class="strategic-panel-tools">
+          <div class="strategic-metric-switch">
+            @for (option of strategicMetricOptions; track option.key) {
+              <button
+                class="ghost-button strategic-metric-button"
+                type="button"
+                [class.is-active]="strategicMetric() === option.key"
+                (click)="selectStrategicMetric(option.key)"
+              >
+                {{ option.label }}
+              </button>
+            }
+          </div>
+          @if (isDepartmentHead()) {
+            <div class="global-panel-head-actions strategic-list-actions">
+              <span class="recent-total">{{ strategicBenchmarkRowsCount() }} enseignant(s)</span>
+              @if (hasStrategicBenchmarkRowsToggle()) {
+                <button
+                  class="ghost-button icon-only-button recent-list-toggle-button strategic-list-toggle-button"
+                  type="button"
+                  [class.is-expanded]="showAllStrategicBenchmarkRows()"
+                  (click)="toggleStrategicBenchmarkRows()"
+                  [title]="strategicBenchmarkRowsToggleLabel()"
+                  [attr.aria-label]="strategicBenchmarkRowsToggleLabel()"
+                ></button>
+              }
+            </div>
           }
         </div>
       </div>
@@ -643,7 +672,10 @@
               <th>{{ strategicEntityHeader() }}</th>
               <th>Activites</th>
               <th>Validation</th>
-              <th>Points</th>
+              <th>{{ isDepartmentHead() ? 'Points prime' : 'Points' }}</th>
+              @if (isDepartmentHead()) {
+                <th>Prime (DT)</th>
+              }
             </tr>
           </thead>
           <tbody>
@@ -657,6 +689,9 @@
                 <td>{{ row.activities }}</td>
                 <td>{{ formatRate(row.validationRate) }}</td>
                 <td>{{ formatPoints(row.points) }}</td>
+                @if (isDepartmentHead()) {
+                  <td>{{ formatPoints(row.prime) }} DT</td>
+                }
               </tr>
             }
           </tbody>

@@ -6,6 +6,7 @@ import { ChartData } from 'chart.js';
 import { catchError, forkJoin, of } from 'rxjs';
 import {
   AdministrationConfig,
+  AdministrationConfigUpdateRequest,
   AdministrativeDecisionAction,
   AdministrativeDecisionHistoryResponse,
   AdministrativeEvaluationResponse
@@ -47,23 +48,36 @@ export class AdministrationPageComponent {
   readonly showAllBonusRows = signal(false);
   readonly showAllConsultationRows = signal(false);
   readonly showAllHistoryRows = signal(false);
+  readonly manualConfigEntryEnabled = signal(true);
+
+  private readonly configFieldNames: Array<keyof AdministrationConfigUpdateRequest> = [
+    'referencePoints',
+    'totalPrimeAmount',
+    'bonusAbsencePenaltyPerDay',
+    'promotionTeachingPointFactor',
+    'teachingActivityPoint',
+    'supervisionActivityPoint',
+    'researchActivityPoint',
+    'eventActivityPoint',
+    'examSurveillanceActivityPoint',
+    'responsibilityActivityPoint'
+  ];
 
   readonly periodForm = this.formBuilder.nonNullable.group({
     periodLabel: [this.defaultAcademicYear(), [Validators.required]]
   });
 
   readonly configForm = this.formBuilder.nonNullable.group({
-    bonusBaseAmount: [500, [Validators.required, Validators.min(0)]],
-    bonusAmountPerPoint: [10, [Validators.required, Validators.min(0)]],
-    bonusAbsencePenaltyPerDay: [5, [Validators.required, Validators.min(0)]],
-    promotionTeachingPointFactor: [0.1, [Validators.required, Validators.min(0)]],
-    teachingActivityPoint: [5, [Validators.required, Validators.min(0)]],
-    supervisionActivityPoint: [3, [Validators.required, Validators.min(0)]],
-    researchActivityPoint: [4, [Validators.required, Validators.min(0)]],
-    eventActivityPoint: [2, [Validators.required, Validators.min(0)]],
-    examSurveillanceActivityPoint: [1, [Validators.required, Validators.min(0)]],
-    responsibilityActivityPoint: [3, [Validators.required, Validators.min(0)]],
-    availabilityActivityPoint: [1, [Validators.required, Validators.min(0)]]
+    referencePoints: ['500', [Validators.required]],
+    totalPrimeAmount: ['0', [Validators.required]],
+    bonusAbsencePenaltyPerDay: ['5', [Validators.required]],
+    promotionTeachingPointFactor: ['0.1', [Validators.required]],
+    teachingActivityPoint: ['5', [Validators.required]],
+    supervisionActivityPoint: ['3', [Validators.required]],
+    researchActivityPoint: ['4', [Validators.required]],
+    eventActivityPoint: ['2', [Validators.required]],
+    examSurveillanceActivityPoint: ['1', [Validators.required]],
+    responsibilityActivityPoint: ['3', [Validators.required]]
   });
 
   readonly filteredEvaluations = computed(() => {
@@ -131,6 +145,9 @@ export class AdministrationPageComponent {
   );
   readonly validatedActivitiesTotal = computed(() =>
     this.filteredEvaluations().reduce((total, item) => total + Number(item.validatedActivities ?? 0), 0)
+  );
+  readonly globalWeightTotal = computed(() =>
+    this.evaluations().reduce((total, item) => total + this.resolvedEvaluationWeight(item), 0)
   );
   readonly bonusTotal = computed(() =>
     this.filteredEvaluations().reduce((total, item) => total + Number(item.calculatedBonus ?? 0), 0)
@@ -255,7 +272,7 @@ export class AdministrationPageComponent {
       .subscribe({
         next: ({ configuration, evaluations, history, workflowActivities }) => {
           this.applyConfiguration(configuration);
-          this.evaluations.set(evaluations);
+          this.evaluations.set(this.sortEvaluationsByTeacher(evaluations));
           this.history.set(history);
           this.validatedActivities.set(this.extractValidatedActivities(workflowActivities, periodLabel));
           this.showAllBonusRows.set(false);
@@ -285,7 +302,7 @@ export class AdministrationPageComponent {
       .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe({
         next: ({ evaluations, history, workflowActivities }) => {
-          this.evaluations.set(evaluations);
+          this.evaluations.set(this.sortEvaluationsByTeacher(evaluations));
           this.history.set(history);
           this.validatedActivities.set(this.extractValidatedActivities(workflowActivities, periodLabel));
           this.showAllBonusRows.set(false);
@@ -301,8 +318,14 @@ export class AdministrationPageComponent {
   }
 
   saveConfiguration() {
-    if (this.configForm.invalid || this.configSaving()) {
+    if (this.configSaving()) {
+      return;
+    }
+
+    const payload = this.buildConfigurationPayload();
+    if (!payload) {
       this.configForm.markAllAsTouched();
+      this.errorMessage.set('Veuillez saisir des nombres valides (virgule ou point) pour toutes les zones.');
       return;
     }
 
@@ -311,7 +334,7 @@ export class AdministrationPageComponent {
     this.successMessage.set('');
 
     this.administrationService
-      .updateConfiguration(this.configForm.getRawValue())
+      .updateConfiguration(payload)
       .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe({
         next: (configuration) => {
@@ -400,6 +423,20 @@ export class AdministrationPageComponent {
     this.showAdministrationDashboard.update((value) => !value);
   }
 
+  toggleManualConfigEntry() {
+    if (this.configSaving()) {
+      return;
+    }
+
+    this.manualConfigEntryEnabled.update((value) => !value);
+    if (this.manualConfigEntryEnabled()) {
+      this.configForm.enable({ emitEvent: false });
+      return;
+    }
+
+    this.configForm.disable({ emitEvent: false });
+  }
+
   toggleBonusRowsVisibility() {
     if (!this.hasBonusRowsToggle()) {
       return;
@@ -424,8 +461,81 @@ export class AdministrationPageComponent {
     this.showAllHistoryRows.update((value) => !value);
   }
 
+  evaluationWeightForView(evaluation: AdministrativeEvaluationResponse) {
+    return this.roundWeightValue(this.resolvedEvaluationWeight(evaluation));
+  }
+
+  onNumericKeydown(event: KeyboardEvent) {
+    if (event.ctrlKey || event.metaKey || event.altKey) {
+      return;
+    }
+
+    const allowedKeys = new Set([
+      'Backspace',
+      'Delete',
+      'Tab',
+      'Enter',
+      'Escape',
+      'ArrowLeft',
+      'ArrowRight',
+      'Home',
+      'End'
+    ]);
+    if (allowedKeys.has(event.key)) {
+      return;
+    }
+
+    if (/^\d$/.test(event.key)) {
+      return;
+    }
+
+    if (event.key === '.' || event.key === ',') {
+      const input = event.currentTarget as HTMLInputElement | null;
+      if (!input) {
+        event.preventDefault();
+        return;
+      }
+
+      const selectionStart = input.selectionStart ?? input.value.length;
+      const selectionEnd = input.selectionEnd ?? input.value.length;
+      const valueExcludingSelection =
+        input.value.slice(0, selectionStart) + input.value.slice(selectionEnd);
+
+      if (!valueExcludingSelection.includes('.') && !valueExcludingSelection.includes(',')) {
+        return;
+      }
+    }
+
+    event.preventDefault();
+  }
+
+  onNumericInput(event: Event, fieldName: keyof AdministrationConfigUpdateRequest) {
+    const input = event.target as HTMLInputElement | null;
+    if (!input) {
+      return;
+    }
+
+    const sanitizedValue = this.sanitizeNumericValue(input.value);
+    if (sanitizedValue !== input.value) {
+      input.value = sanitizedValue;
+    }
+
+    this.configForm.controls[fieldName].setValue(sanitizedValue, { emitEvent: false });
+  }
+
   private applyConfiguration(configuration: AdministrationConfig) {
-    this.configForm.patchValue(configuration);
+    this.configForm.patchValue({
+      referencePoints: this.formatDecimalForInput(configuration.referencePoints),
+      totalPrimeAmount: this.formatDecimalForInput(configuration.totalPrimeAmount),
+      bonusAbsencePenaltyPerDay: this.formatDecimalForInput(configuration.bonusAbsencePenaltyPerDay),
+      promotionTeachingPointFactor: this.formatDecimalForInput(configuration.promotionTeachingPointFactor),
+      teachingActivityPoint: this.formatDecimalForInput(configuration.teachingActivityPoint),
+      supervisionActivityPoint: this.formatDecimalForInput(configuration.supervisionActivityPoint),
+      researchActivityPoint: this.formatDecimalForInput(configuration.researchActivityPoint),
+      eventActivityPoint: this.formatDecimalForInput(configuration.eventActivityPoint),
+      examSurveillanceActivityPoint: this.formatDecimalForInput(configuration.examSurveillanceActivityPoint),
+      responsibilityActivityPoint: this.formatDecimalForInput(configuration.responsibilityActivityPoint)
+    });
   }
 
   private defaultAcademicYear() {
@@ -451,6 +561,26 @@ export class AdministrationPageComponent {
     return Math.round(value * 100) / 100;
   }
 
+  private roundWeightValue(value: number) {
+    if (!Number.isFinite(value)) {
+      return 0;
+    }
+
+    return Math.round(value * 1_000_000) / 1_000_000;
+  }
+
+  private sortEvaluationsByTeacher(evaluations: AdministrativeEvaluationResponse[]) {
+    return evaluations
+      .slice()
+      .sort((left, right) => {
+        const byName = left.teacherName.localeCompare(right.teacherName, 'fr', { sensitivity: 'base' });
+        if (byName !== 0) {
+          return byName;
+        }
+        return left.teacherId - right.teacherId;
+      });
+  }
+
   private extractValidatedActivities(activities: WorkflowActivityResponse[], periodLabel: string) {
     return activities
       .filter((activity) => {
@@ -460,5 +590,105 @@ export class AdministrationPageComponent {
         );
       })
       .sort((left, right) => new Date(right.updatedAt).getTime() - new Date(left.updatedAt).getTime());
+  }
+
+  private buildConfigurationPayload(): AdministrationConfigUpdateRequest | null {
+    if (this.configForm.invalid) {
+      return null;
+    }
+
+    const raw = this.configForm.getRawValue();
+    const payload: Partial<AdministrationConfigUpdateRequest> = {};
+    let hasInvalidValue = false;
+
+    for (const fieldName of this.configFieldNames) {
+      const control = this.configForm.controls[fieldName];
+      const parsedValue = this.parseNonNegativeDecimal(raw[fieldName]);
+
+      if (parsedValue === null) {
+        control.setErrors({ ...(control.errors ?? {}), invalidNumber: true });
+        hasInvalidValue = true;
+        continue;
+      }
+
+      if (control.hasError('invalidNumber')) {
+        const currentErrors = { ...(control.errors ?? {}) };
+        delete currentErrors['invalidNumber'];
+        control.setErrors(Object.keys(currentErrors).length > 0 ? currentErrors : null);
+      }
+
+      payload[fieldName] = parsedValue;
+      control.setValue(this.formatDecimalForInput(parsedValue), { emitEvent: false });
+    }
+
+    if (hasInvalidValue) {
+      return null;
+    }
+
+    return payload as AdministrationConfigUpdateRequest;
+  }
+
+  private parseNonNegativeDecimal(rawValue: string): number | null {
+    const normalized = rawValue.replace(/\s+/g, '').replace(',', '.');
+    if (!/^\d+(\.\d+)?$/.test(normalized)) {
+      return null;
+    }
+
+    const parsed = Number(normalized);
+    if (!Number.isFinite(parsed) || parsed < 0) {
+      return null;
+    }
+
+    return parsed;
+  }
+
+  private formatDecimalForInput(value: number) {
+    if (!Number.isFinite(value)) {
+      return '0';
+    }
+    return value.toString().replace('.', ',');
+  }
+
+  private sanitizeNumericValue(rawValue: string) {
+    const compact = rawValue.replace(/\s+/g, '');
+    const numericOnly = compact.replace(/[^0-9.,]/g, '');
+    if (!numericOnly) {
+      return '';
+    }
+
+    const separatorIndex = numericOnly.search(/[.,]/);
+    if (separatorIndex < 0) {
+      return numericOnly;
+    }
+
+    const integerPart = numericOnly.slice(0, separatorIndex).replace(/[.,]/g, '');
+    const separator = numericOnly.charAt(separatorIndex);
+    const decimalPart = numericOnly.slice(separatorIndex + 1).replace(/[.,]/g, '');
+    const safeIntegerPart = integerPart.length > 0 ? integerPart : '0';
+
+    return `${safeIntegerPart}${separator}${decimalPart}`;
+  }
+
+  private resolvedEvaluationWeight(item: AdministrativeEvaluationResponse) {
+    const backendWeight = Number(item.calculatedWeight);
+    if (Number.isFinite(backendWeight)) {
+      return Math.max(0, backendWeight);
+    }
+
+    const referencePoints = this.parseNonNegativeDecimal(this.configForm.controls.referencePoints.value);
+    if (referencePoints == null || referencePoints <= 0) {
+      return 0;
+    }
+
+    const promotionPoints = Number(item.calculatedPromotionPoints ?? 0);
+    if (!Number.isFinite(promotionPoints)) {
+      return 0;
+    }
+
+    if (promotionPoints <= referencePoints) {
+      return 0;
+    }
+
+    return (promotionPoints - referencePoints) / referencePoints;
   }
 }

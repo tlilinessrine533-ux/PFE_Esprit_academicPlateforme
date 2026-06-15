@@ -1,414 +1,482 @@
-CREATE DATABASE IF NOT EXISTS pfe_academic_platform
+-- ============================================================
+--  pfe_academic_platform  --  Schéma COMPLET
+--  Inclut toutes les tables créées par les Bootstrap Java
+--  Généré depuis : schema-pfe-mysql.sql + tous les *Bootstrap.java
+-- ============================================================
+
+DROP DATABASE IF EXISTS pfe_academic_platform;
+
+CREATE DATABASE pfe_academic_platform
   CHARACTER SET utf8mb4
   COLLATE utf8mb4_unicode_ci;
 
 USE pfe_academic_platform;
 
+-- ============================================================
+-- 1. departments
+-- ============================================================
 CREATE TABLE departments (
-  id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
-  name VARCHAR(100) NOT NULL,
-  code VARCHAR(20) NULL,
+  id         BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  name       VARCHAR(100) NOT NULL,
+  code       VARCHAR(20)  NULL,
   created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   UNIQUE KEY uq_departments_name (name),
   UNIQUE KEY uq_departments_code (code)
 ) ENGINE=InnoDB;
 
+-- ============================================================
+-- 2. users
+-- ============================================================
 CREATE TABLE users (
-  id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
-  first_name VARCHAR(100) NOT NULL,
-  last_name VARCHAR(100) NOT NULL,
-  email VARCHAR(150) NOT NULL,
+  id            BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  first_name    VARCHAR(100) NOT NULL,
+  last_name     VARCHAR(100) NOT NULL,
+  email         VARCHAR(150) NOT NULL,
   password_hash VARCHAR(255) NOT NULL,
-  role ENUM('ENSEIGNANT', 'CHEF_DEPARTEMENT', 'ADMINISTRATION', 'SUPER_ADMIN') NOT NULL,
-  teacher_type VARCHAR(20) NULL,
+  role          ENUM('ENSEIGNANT','CHEF_DEPARTEMENT','ADMINISTRATION','SUPER_ADMIN') NOT NULL,
+  teacher_type  VARCHAR(20)  NULL,
   department_id BIGINT UNSIGNED NULL,
-  is_active TINYINT(1) NOT NULL DEFAULT 1,
-  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  is_active     TINYINT(1)   NOT NULL DEFAULT 1,
+  created_at    DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at    DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   UNIQUE KEY uq_users_email (email),
-  KEY idx_users_role (role),
+  KEY idx_users_role       (role),
   KEY idx_users_department (department_id),
   CONSTRAINT fk_users_department
     FOREIGN KEY (department_id) REFERENCES departments(id)
-    ON DELETE SET NULL
-    ON UPDATE CASCADE
+    ON DELETE SET NULL ON UPDATE CASCADE
 ) ENGINE=InnoDB;
 
+-- ============================================================
+-- 3. auth_security_states
+--    Colonnes complètes : 2FA + passkey (WebAuthn) + face recognition
+--    (colonnes passkey et face_recognition manquaient dans l'ancien schéma)
+-- ============================================================
 CREATE TABLE auth_security_states (
-  user_id BIGINT UNSIGNED PRIMARY KEY,
-  failed_login_attempts INT NOT NULL DEFAULT 0,
-  login_locked_until DATETIME NULL,
-  password_reset_code_hash VARCHAR(255) NULL,
-  password_reset_expires_at DATETIME NULL,
-  password_reset_requested_at DATETIME NULL,
-  two_factor_enabled TINYINT(1) NOT NULL DEFAULT 0,
-  two_factor_secret VARCHAR(128) NULL,
-  two_factor_pending_secret VARCHAR(128) NULL,
-  two_factor_pending_secret_expires_at DATETIME NULL,
-  two_factor_login_challenge_hash VARCHAR(255) NULL,
-  two_factor_login_challenge_expires_at DATETIME NULL,
-  two_factor_backup_code_hashes TEXT NULL,
-  trusted_device_token_hash VARCHAR(255) NULL,
-  trusted_device_expires_at DATETIME NULL,
-  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  user_id                              BIGINT UNSIGNED PRIMARY KEY,
+  failed_login_attempts                INT           NOT NULL DEFAULT 0,
+  login_locked_until                   DATETIME      NULL,
+  password_reset_code_hash             VARCHAR(255)  NULL,
+  password_reset_expires_at            DATETIME      NULL,
+  password_reset_requested_at          DATETIME      NULL,
+  -- 2FA
+  two_factor_enabled                   TINYINT(1)    NOT NULL DEFAULT 0,
+  two_factor_secret                    VARCHAR(128)  NULL,
+  two_factor_pending_secret            VARCHAR(128)  NULL,
+  two_factor_pending_secret_expires_at DATETIME      NULL,
+  two_factor_login_challenge_hash      VARCHAR(255)  NULL,
+  two_factor_login_challenge_expires_at DATETIME     NULL,
+  two_factor_backup_code_hashes        TEXT          NULL,
+  trusted_device_token_hash            VARCHAR(255)  NULL,
+  trusted_device_expires_at            DATETIME      NULL,
+  -- Passkey (WebAuthn)
+  passkey_credential_id                VARCHAR(255)  NULL,
+  passkey_public_key                   TEXT          NULL,
+  passkey_sign_count                   BIGINT        NOT NULL DEFAULT 0,
+  passkey_registered_at                DATETIME      NULL,
+  passkey_last_used_at                 DATETIME      NULL,
+  passkey_registration_challenge       VARCHAR(255)  NULL,
+  passkey_registration_expires_at      DATETIME      NULL,
+  passkey_authentication_challenge     VARCHAR(255)  NULL,
+  passkey_authentication_expires_at    DATETIME      NULL,
+  -- Face Recognition
+  face_recognition_descriptor          TEXT          NULL,
+  face_recognition_enrolled_at         DATETIME      NULL,
+  face_recognition_last_used_at        DATETIME      NULL,
+  created_at                           DATETIME      NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at                           DATETIME      NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   CONSTRAINT fk_auth_security_user
     FOREIGN KEY (user_id) REFERENCES users(id)
-    ON DELETE CASCADE
-    ON UPDATE CASCADE
+    ON DELETE CASCADE ON UPDATE CASCADE
 ) ENGINE=InnoDB;
 
+-- ============================================================
+-- 4. signup_requests
+-- ============================================================
 CREATE TABLE signup_requests (
-  id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
-  first_name VARCHAR(100) NOT NULL,
-  last_name VARCHAR(100) NOT NULL,
-  email VARCHAR(150) NOT NULL,
-  password_hash VARCHAR(255) NOT NULL,
-  role ENUM('ENSEIGNANT', 'CHEF_DEPARTEMENT', 'ADMINISTRATION', 'SUPER_ADMIN') NOT NULL DEFAULT 'ENSEIGNANT',
-  department_id BIGINT UNSIGNED NOT NULL,
-  status ENUM('PENDING', 'APPROVED', 'REJECTED') NOT NULL DEFAULT 'PENDING',
-  review_comment TEXT NULL,
-  reviewed_by BIGINT UNSIGNED NULL,
-  reviewed_at DATETIME NULL,
-  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-  UNIQUE KEY uq_signup_requests_email (email),
-  KEY idx_signup_requests_status (status),
-  KEY idx_signup_requests_department (department_id),
-  KEY idx_signup_requests_reviewed_by (reviewed_by),
+  id             BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  first_name     VARCHAR(100) NOT NULL,
+  last_name      VARCHAR(100) NOT NULL,
+  email          VARCHAR(150) NOT NULL,
+  password_hash  VARCHAR(255) NOT NULL,
+  role           ENUM('ENSEIGNANT','CHEF_DEPARTEMENT','ADMINISTRATION','SUPER_ADMIN') NOT NULL DEFAULT 'ENSEIGNANT',
+  department_id  BIGINT UNSIGNED NOT NULL,
+  status         ENUM('PENDING','APPROVED','REJECTED') NOT NULL DEFAULT 'PENDING',
+  review_comment TEXT          NULL,
+  reviewed_by    BIGINT UNSIGNED NULL,
+  reviewed_at    DATETIME      NULL,
+  created_at     DATETIME      NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at     DATETIME      NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  UNIQUE KEY uq_signup_requests_email     (email),
+  KEY idx_signup_requests_status          (status),
+  KEY idx_signup_requests_department      (department_id),
+  KEY idx_signup_requests_reviewed_by     (reviewed_by),
   CONSTRAINT fk_signup_requests_department
     FOREIGN KEY (department_id) REFERENCES departments(id)
-    ON DELETE RESTRICT
-    ON UPDATE CASCADE,
+    ON DELETE RESTRICT ON UPDATE CASCADE,
   CONSTRAINT fk_signup_requests_reviewed_by
     FOREIGN KEY (reviewed_by) REFERENCES users(id)
-    ON DELETE SET NULL
-    ON UPDATE CASCADE
+    ON DELETE SET NULL ON UPDATE CASCADE
 ) ENGINE=InnoDB;
 
+-- ============================================================
+-- 5. activities  (table parent, héritage JOINED)
+-- ============================================================
 CREATE TABLE activities (
-  id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
-  user_id BIGINT UNSIGNED NOT NULL,
+  id            BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  user_id       BIGINT UNSIGNED NOT NULL,
   activity_type ENUM(
-    'ENSEIGNEMENT',
-    'ENCADREMENT',
-    'RECHERCHE',
-    'EVENEMENT',
-    'SURVEILLANCE',
-    'RESPONSABILITE',
-    'DISPONIBILITE'
+    'ENSEIGNEMENT','ENCADREMENT','RECHERCHE',
+    'EVENEMENT','SURVEILLANCE','RESPONSABILITE','DISPONIBILITE'
   ) NOT NULL,
-  status ENUM(
-    'BROUILLON',
-    'SOUMISE',
-    'VALIDEE_DEPARTEMENT',
-    'VALIDEE_FINALE',
-    'REJETEE',
-    'A_CORRIGER'
+  status        ENUM(
+    'BROUILLON','SOUMISE','VALIDEE_DEPARTEMENT',
+    'VALIDEE_FINALE','REJETEE','A_CORRIGER'
   ) NOT NULL DEFAULT 'BROUILLON',
-  academic_year VARCHAR(20) NOT NULL,
-  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-  KEY idx_activities_user (user_id),
-  KEY idx_activities_type (activity_type),
+  academic_year VARCHAR(20)  NOT NULL,
+  created_at    DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at    DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  KEY idx_activities_user   (user_id),
+  KEY idx_activities_type   (activity_type),
   KEY idx_activities_status (status),
   CONSTRAINT fk_activities_user
     FOREIGN KEY (user_id) REFERENCES users(id)
-    ON DELETE RESTRICT
-    ON UPDATE CASCADE
+    ON DELETE RESTRICT ON UPDATE CASCADE
 ) ENGINE=InnoDB;
 
+-- ============================================================
+-- 6. teaching_activities
+--    VARCHAR au lieu de ENUM pour semester / teaching_mode /
+--    partnership_declaration_type (Bootstrap convertit en VARCHAR)
+-- ============================================================
 CREATE TABLE teaching_activities (
-  activity_id BIGINT UNSIGNED PRIMARY KEY,
-  program_name VARCHAR(150) NOT NULL,
-  class_name VARCHAR(100) NOT NULL,
-  module_name VARCHAR(150) NOT NULL,
-  semester ENUM('S1', 'S2', 'ANNUEL') NOT NULL,
-  teaching_mode ENUM('PRESENTIEL', 'EN_LIGNE', 'ALTERNANCE', 'EXECUTIF') NOT NULL,
-  language VARCHAR(50) NOT NULL,
-  planned_hours DECIMAL(6,2) NOT NULL,
-  completed_hours DECIMAL(6,2) NOT NULL,
-  new_course_hours DECIMAL(6,2) NOT NULL DEFAULT 0.00,
-  course_restructuring_percentage INT NOT NULL DEFAULT 0,
-  course_restructuring_approved TINYINT(1) NULL,
-  syllabus_count INT NOT NULL DEFAULT 0,
-  car_file_elaborated TINYINT(1) NOT NULL DEFAULT 0,
-  exam_elaborated TINYINT(1) NOT NULL DEFAULT 0,
-  evening_or_saturday_hours DECIMAL(6,2) NOT NULL DEFAULT 0.00,
-  coordination TINYINT(1) NOT NULL DEFAULT 0,
-  partnership_declaration_type ENUM('ACADEMIQUE', 'PROFESSIONNELLE') NULL,
-  syllabus_path VARCHAR(255) NULL,
+  activity_id                      BIGINT UNSIGNED PRIMARY KEY,
+  program_name                     VARCHAR(150) NOT NULL,
+  class_name                       VARCHAR(100) NOT NULL,
+  module_name                      VARCHAR(150) NOT NULL,
+  semester                         VARCHAR(10)  NOT NULL,
+  teaching_mode                    VARCHAR(30)  NOT NULL,
+  language                         VARCHAR(50)  NOT NULL,
+  planned_hours                    DECIMAL(6,2) NOT NULL,
+  completed_hours                  DECIMAL(6,2) NOT NULL,
+  new_course_hours                 DECIMAL(6,2) NOT NULL DEFAULT 0.00,
+  course_restructuring_percentage  INT          NOT NULL DEFAULT 0,
+  course_restructuring_approved    TINYINT(1)   NULL,
+  syllabus_count                   INT          NOT NULL DEFAULT 0,
+  car_file_elaborated              TINYINT(1)   NOT NULL DEFAULT 0,
+  exam_elaborated                  TINYINT(1)   NOT NULL DEFAULT 0,
+  evening_or_saturday_hours        DECIMAL(6,2) NOT NULL DEFAULT 0.00,
+  coordination                     TINYINT(1)   NOT NULL DEFAULT 0,
+  partnership_declaration_type     VARCHAR(20)  NULL,
+  syllabus_path                    VARCHAR(255) NULL,
   CONSTRAINT fk_teaching_activity
     FOREIGN KEY (activity_id) REFERENCES activities(id)
-    ON DELETE CASCADE
-    ON UPDATE CASCADE
+    ON DELETE CASCADE ON UPDATE CASCADE
 ) ENGINE=InnoDB;
 
+-- ============================================================
+-- 7. supervision_activities
+--    VARCHAR au lieu de ENUM (Bootstrap convertit)
+-- ============================================================
 CREATE TABLE supervision_activities (
-  activity_id BIGINT UNSIGNED PRIMARY KEY,
-  supervision_type VARCHAR(80) NOT NULL,
-  student_name VARCHAR(150) NOT NULL,
-  student_program VARCHAR(150) NOT NULL,
-  subject_title VARCHAR(255) NOT NULL,
-  supervision_status ENUM('EN_COURS', 'SOUTENU') NOT NULL,
-  role_in_jury VARCHAR(30) NOT NULL,
-  quantity_value DECIMAL(8,2) NOT NULL DEFAULT 1.00,
-  activity_points DECIMAL(8,2) NOT NULL DEFAULT 0.00,
+  activity_id       BIGINT UNSIGNED PRIMARY KEY,
+  supervision_type  VARCHAR(80)  NOT NULL,
+  student_name      VARCHAR(150) NOT NULL,
+  student_program   VARCHAR(150) NOT NULL,
+  subject_title     VARCHAR(255) NOT NULL,
+  supervision_status VARCHAR(20) NOT NULL,
+  role_in_jury      VARCHAR(30)  NOT NULL,
+  quantity_value    DECIMAL(8,2) NOT NULL DEFAULT 1.00,
+  activity_points   DECIMAL(8,2) NOT NULL DEFAULT 0.00,
   CONSTRAINT fk_supervision_activity
     FOREIGN KEY (activity_id) REFERENCES activities(id)
-    ON DELETE CASCADE
-    ON UPDATE CASCADE
+    ON DELETE CASCADE ON UPDATE CASCADE
 ) ENGINE=InnoDB;
 
+-- ============================================================
+-- 8. research_activities
+-- ============================================================
 CREATE TABLE research_activities (
-  activity_id BIGINT UNSIGNED PRIMARY KEY,
-  publication_type VARCHAR(80) NOT NULL,
-  title VARCHAR(255) NOT NULL,
-  venue_name VARCHAR(255) NOT NULL,
-  publication_year YEAR NOT NULL,
-  indexing_name VARCHAR(100) NULL,
-  doi VARCHAR(100) NULL,
-  student_name VARCHAR(150) NULL,
-  pfe_level VARCHAR(100) NULL,
-  deliverable VARCHAR(180) NULL,
-  publication_rank VARCHAR(20) NULL,
-  activity_points DECIMAL(8,2) NOT NULL DEFAULT 0.00,
+  activity_id      BIGINT UNSIGNED PRIMARY KEY,
+  publication_type VARCHAR(80)  NOT NULL,
+  title            VARCHAR(255) NOT NULL,
+  venue_name       VARCHAR(255) NOT NULL,
+  publication_year INT          NOT NULL,
+  indexing_name    VARCHAR(100) NULL,
+  doi              VARCHAR(100) NULL,
+  student_name     VARCHAR(150) NULL,
+  pfe_level        VARCHAR(100) NULL,
+  deliverable      VARCHAR(180) NULL,
+  publication_rank VARCHAR(20)  NULL,
+  activity_points  DECIMAL(8,2) NOT NULL DEFAULT 0.00,
   CONSTRAINT fk_research_activity
     FOREIGN KEY (activity_id) REFERENCES activities(id)
-    ON DELETE CASCADE
-    ON UPDATE CASCADE
+    ON DELETE CASCADE ON UPDATE CASCADE
 ) ENGINE=InnoDB;
 
+-- ============================================================
+-- 9. event_activities
+-- ============================================================
 CREATE TABLE event_activities (
-  activity_id BIGINT UNSIGNED PRIMARY KEY,
-  event_type ENUM('SEMINAIRE', 'COLLOQUE', 'WORKSHOP', 'JOURNEE_SCIENTIFIQUE', 'AUTRE') NOT NULL,
-  title VARCHAR(255) NOT NULL,
-  event_date DATE NOT NULL,
+  activity_id       BIGINT UNSIGNED PRIMARY KEY,
+  event_type        ENUM('SEMINAIRE','COLLOQUE','WORKSHOP','JOURNEE_SCIENTIFIQUE','AUTRE') NOT NULL,
+  title             VARCHAR(255) NOT NULL,
+  event_date        DATE         NOT NULL,
   organization_role VARCHAR(100) NOT NULL,
   CONSTRAINT fk_event_activity
     FOREIGN KEY (activity_id) REFERENCES activities(id)
-    ON DELETE CASCADE
-    ON UPDATE CASCADE
+    ON DELETE CASCADE ON UPDATE CASCADE
 ) ENGINE=InnoDB;
 
+-- ============================================================
+-- 10. exam_surveillance_activities
+-- ============================================================
 CREATE TABLE exam_surveillance_activities (
-  activity_id BIGINT UNSIGNED PRIMARY KEY,
-  session_name VARCHAR(100) NOT NULL,
-  semester ENUM('S1', 'S2', 'ANNUEL') NOT NULL,
-  hours_count DECIMAL(6,2) NOT NULL DEFAULT 1.00,
-  session_day ENUM('LUNDI', 'MARDI', 'MERCREDI', 'JEUDI', 'VENDREDI', 'SAMEDI') NOT NULL DEFAULT 'LUNDI',
+  activity_id    BIGINT UNSIGNED PRIMARY KEY,
+  session_name   VARCHAR(100) NOT NULL,
+  semester       ENUM('S1','S2','ANNUEL') NOT NULL,
+  hours_count    DECIMAL(6,2) NOT NULL DEFAULT 1.00,
+  session_day    ENUM('LUNDI','MARDI','MERCREDI','JEUDI','VENDREDI','SAMEDI') NOT NULL DEFAULT 'LUNDI',
   session_points DECIMAL(4,2) NOT NULL DEFAULT 1.00,
   CONSTRAINT fk_exam_surveillance_activity
     FOREIGN KEY (activity_id) REFERENCES activities(id)
-    ON DELETE CASCADE
-    ON UPDATE CASCADE
+    ON DELETE CASCADE ON UPDATE CASCADE
 ) ENGINE=InnoDB;
 
+-- ============================================================
+-- 11. responsibility_activities
+-- ============================================================
 CREATE TABLE responsibility_activities (
-  activity_id BIGINT UNSIGNED PRIMARY KEY,
+  activity_id       BIGINT UNSIGNED PRIMARY KEY,
   responsibility_type ENUM(
-    'MAITRE_STAGE',
-    'COORDINATEUR_MODULE',
-    'RESPONSABLE_FILIERE',
-    'CHEF_DEPARTEMENT',
-    'AUTRE'
+    'MAITRE_STAGE','COORDINATEUR_MODULE',
+    'RESPONSABLE_FILIERE','CHEF_DEPARTEMENT','AUTRE'
   ) NOT NULL,
   start_date DATE NOT NULL,
-  end_date DATE NULL,
+  end_date   DATE NULL,
   CONSTRAINT fk_responsibility_activity
     FOREIGN KEY (activity_id) REFERENCES activities(id)
-    ON DELETE CASCADE
-    ON UPDATE CASCADE
+    ON DELETE CASCADE ON UPDATE CASCADE
 ) ENGINE=InnoDB;
 
+-- ============================================================
+-- 12. availability_request_activities
+--    VARCHAR au lieu de ENUM (Bootstrap crée en VARCHAR)
+-- ============================================================
 CREATE TABLE availability_request_activities (
-  activity_id BIGINT UNSIGNED PRIMARY KEY,
-  request_type ENUM('CONGE', 'MISSION') NOT NULL,
-  leave_type ENUM('ANNUEL', 'MALADIE', 'EXCEPTIONNEL', 'SANS_SOLDE', 'AUTRE') NULL,
-  mission_kind ENUM('MISSION', 'CONFERENCE') NULL,
-  title VARCHAR(180) NULL,
-  start_date DATE NOT NULL,
-  end_date DATE NOT NULL,
-  reason TEXT NOT NULL,
-  department_id BIGINT UNSIGNED NULL,
-  pedagogical_unit VARCHAR(180) NULL,
-  department_name VARCHAR(100) NULL,
-  medical_certificate_image_data_url LONGTEXT NULL,
+  activity_id                        BIGINT UNSIGNED PRIMARY KEY,
+  request_type                       VARCHAR(20)    NOT NULL,
+  leave_type                         VARCHAR(30)    NULL,
+  mission_kind                       VARCHAR(30)    NULL,
+  title                              VARCHAR(180)   NULL,
+  start_date                         DATE           NOT NULL,
+  end_date                           DATE           NOT NULL,
+  reason                             TEXT           NOT NULL,
+  department_id                      BIGINT UNSIGNED NULL,
+  pedagogical_unit                   VARCHAR(180)   NULL,
+  department_name                    VARCHAR(100)   NULL,
+  medical_certificate_image_data_url LONGTEXT       NULL,
   KEY idx_availability_request_department (department_id),
   CONSTRAINT fk_availability_request_activity
     FOREIGN KEY (activity_id) REFERENCES activities(id)
-    ON DELETE CASCADE
-    ON UPDATE CASCADE,
+    ON DELETE CASCADE ON UPDATE CASCADE,
   CONSTRAINT fk_availability_request_department
     FOREIGN KEY (department_id) REFERENCES departments(id)
-    ON DELETE SET NULL
-    ON UPDATE CASCADE
+    ON DELETE SET NULL ON UPDATE CASCADE
 ) ENGINE=InnoDB;
 
+-- ============================================================
+-- 13. validation_history
+-- ============================================================
 CREATE TABLE validation_history (
-  id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
-  activity_id BIGINT UNSIGNED NOT NULL,
-  actor_id BIGINT UNSIGNED NOT NULL,
-  validation_level ENUM('ENSEIGNANT', 'CHEF_DEPARTEMENT', 'ADMINISTRATION') NOT NULL,
-  decision ENUM('SOUMIS', 'VALIDE', 'REJETE', 'A_CORRIGER') NOT NULL,
-  comment_text TEXT NULL,
-  decided_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  id               BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  activity_id      BIGINT UNSIGNED NOT NULL,
+  actor_id         BIGINT UNSIGNED NOT NULL,
+  validation_level ENUM('ENSEIGNANT','CHEF_DEPARTEMENT','ADMINISTRATION') NOT NULL,
+  decision         ENUM('SOUMIS','VALIDE','REJETE','A_CORRIGER') NOT NULL,
+  comment_text     TEXT     NULL,
+  decided_at       DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   KEY idx_validation_activity (activity_id),
-  KEY idx_validation_actor (actor_id),
+  KEY idx_validation_actor    (actor_id),
   KEY idx_validation_decision (decision),
   CONSTRAINT fk_validation_activity
     FOREIGN KEY (activity_id) REFERENCES activities(id)
-    ON DELETE CASCADE
-    ON UPDATE CASCADE,
+    ON DELETE CASCADE ON UPDATE CASCADE,
   CONSTRAINT fk_validation_actor
     FOREIGN KEY (actor_id) REFERENCES users(id)
-    ON DELETE RESTRICT
-    ON UPDATE CASCADE
+    ON DELETE RESTRICT ON UPDATE CASCADE
 ) ENGINE=InnoDB;
 
+-- ============================================================
+-- 14. reports
+-- ============================================================
 CREATE TABLE reports (
-  id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
-  generated_by BIGINT UNSIGNED NOT NULL,
+  id             BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  generated_by   BIGINT UNSIGNED NOT NULL,
   target_user_id BIGINT UNSIGNED NULL,
-  department_id BIGINT UNSIGNED NULL,
-  report_type ENUM(
-    'INDIVIDUEL_ANNUEL',
-    'SEMESTRIEL',
-    'PROMOTION_ACADEMIQUE',
-    'PRIME_PERFORMANCE',
-    'DEPARTEMENTAL',
-    'INSTITUTIONNEL'
+  department_id  BIGINT UNSIGNED NULL,
+  report_type    ENUM(
+    'INDIVIDUEL_ANNUEL','SEMESTRIEL','PROMOTION_ACADEMIQUE',
+    'PRIME_PERFORMANCE','DEPARTEMENTAL','INSTITUTIONNEL'
   ) NOT NULL,
-  report_format ENUM('PDF', 'EXCEL') NOT NULL,
-  period_label VARCHAR(50) NOT NULL,
-  file_path VARCHAR(255) NULL,
-  generated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  report_format  ENUM('PDF','EXCEL') NOT NULL,
+  period_label   VARCHAR(50)  NOT NULL,
+  file_path      VARCHAR(255) NULL,
+  generated_at   DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
   KEY idx_reports_generated_by (generated_by),
-  KEY idx_reports_target_user (target_user_id),
-  KEY idx_reports_department (department_id),
+  KEY idx_reports_target_user  (target_user_id),
+  KEY idx_reports_department   (department_id),
   CONSTRAINT fk_reports_generated_by
     FOREIGN KEY (generated_by) REFERENCES users(id)
-    ON DELETE RESTRICT
-    ON UPDATE CASCADE,
+    ON DELETE RESTRICT ON UPDATE CASCADE,
   CONSTRAINT fk_reports_target_user
     FOREIGN KEY (target_user_id) REFERENCES users(id)
-    ON DELETE SET NULL
-    ON UPDATE CASCADE,
+    ON DELETE SET NULL ON UPDATE CASCADE,
   CONSTRAINT fk_reports_department
     FOREIGN KEY (department_id) REFERENCES departments(id)
-    ON DELETE SET NULL
-    ON UPDATE CASCADE
+    ON DELETE SET NULL ON UPDATE CASCADE
 ) ENGINE=InnoDB;
 
+-- ============================================================
+-- 15. notifications
+-- ============================================================
 CREATE TABLE notifications (
-  id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
-  user_id BIGINT UNSIGNED NOT NULL,
-  title VARCHAR(150) NOT NULL,
-  message_text TEXT NOT NULL,
-  is_read TINYINT(1) NOT NULL DEFAULT 0,
-  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  KEY idx_notifications_user (user_id),
+  id           BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  user_id      BIGINT UNSIGNED NOT NULL,
+  title        VARCHAR(150) NOT NULL,
+  message_text TEXT         NOT NULL,
+  is_read      TINYINT(1)   NOT NULL DEFAULT 0,
+  created_at   DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  KEY idx_notifications_user    (user_id),
   KEY idx_notifications_is_read (is_read),
   CONSTRAINT fk_notifications_user
     FOREIGN KEY (user_id) REFERENCES users(id)
-    ON DELETE CASCADE
-    ON UPDATE CASCADE
+    ON DELETE CASCADE ON UPDATE CASCADE
 ) ENGINE=InnoDB;
+
+-- ============================================================
+-- 16. administration_settings  ← NOUVELLE TABLE (manquait)
+--    Paramètres de configuration : montants primes, points/activité…
+-- ============================================================
+CREATE TABLE administration_settings (
+  setting_key   VARCHAR(120) PRIMARY KEY,
+  setting_value VARCHAR(300) NOT NULL,
+  updated_at    DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+) ENGINE=InnoDB;
+
+INSERT INTO administration_settings (setting_key, setting_value) VALUES
+  ('bonus.base.amount',               '500.00'),
+  ('prime.reference.points',          '500.00'),
+  ('prime.total.amount',              '0.00'),
+  ('bonus.absence.penalty.per.day',   '5.00'),
+  ('promotion.teaching.point.factor', '0.10'),
+  ('points.teaching',                 '5.00'),
+  ('points.supervision',              '3.00'),
+  ('points.research',                 '4.00'),
+  ('points.event',                    '2.00'),
+  ('points.exam.surveillance',        '1.00'),
+  ('points.responsibility',           '3.00');
+
+-- ============================================================
+-- 17. administrative_decisions  ← NOUVELLE TABLE (manquait)
+--    Décisions d'évaluation annuelle par enseignant / période
+-- ============================================================
+CREATE TABLE administrative_decisions (
+  id                       BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  teacher_id               BIGINT UNSIGNED  NOT NULL,
+  period_label             VARCHAR(20)      NOT NULL,
+  validated_activities     BIGINT           NOT NULL DEFAULT 0,
+  validated_teaching_points DECIMAL(10,2)  NOT NULL DEFAULT 0.00,
+  absence_days             INT              NOT NULL DEFAULT 0,
+  activity_type_points     DECIMAL(10,2)   NOT NULL DEFAULT 0.00,
+  calculated_bonus         DECIMAL(12,2)   NOT NULL DEFAULT 0.00,
+  calculated_promotion_points DECIMAL(12,2) NOT NULL DEFAULT 0.00,
+  decision_status          VARCHAR(20)      NOT NULL,
+  decision_comment         VARCHAR(1000)    NULL,
+  decided_by_id            BIGINT UNSIGNED  NULL,
+  decided_at               DATETIME         NULL,
+  created_at               DATETIME         NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at               DATETIME         NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  INDEX idx_admin_decisions_teacher_period (teacher_id, period_label),
+  INDEX idx_admin_decisions_period         (period_label),
+  CONSTRAINT fk_admin_decisions_teacher
+    FOREIGN KEY (teacher_id) REFERENCES users(id)
+    ON DELETE CASCADE ON UPDATE CASCADE,
+  CONSTRAINT fk_admin_decisions_actor
+    FOREIGN KEY (decided_by_id) REFERENCES users(id)
+    ON DELETE SET NULL ON UPDATE CASCADE
+) ENGINE=InnoDB;
+
+-- ============================================================
+-- VUES analytiques
+-- ============================================================
 
 CREATE VIEW v_teacher_kpis AS
 SELECT
-  u.id AS user_id,
+  u.id          AS user_id,
   u.first_name,
   u.last_name,
   u.email,
-  d.name AS department_name,
-  COUNT(DISTINCT CASE
-    WHEN a.activity_type = 'ENSEIGNEMENT' THEN a.id
-  END) AS teaching_count,
-  COALESCE(SUM(CASE
-    WHEN a.activity_type = 'ENSEIGNEMENT' THEN ta.completed_hours
-    ELSE 0
-  END), 0) AS total_completed_hours,
+  d.name        AS department_name,
+  COUNT(DISTINCT CASE WHEN a.activity_type = 'ENSEIGNEMENT' THEN a.id END) AS teaching_count,
+  COALESCE(SUM(CASE WHEN a.activity_type = 'ENSEIGNEMENT' THEN ta.completed_hours ELSE 0 END), 0) AS total_completed_hours,
   COALESCE(SUM(CASE
     WHEN a.activity_type = 'ENSEIGNEMENT'
-      AND a.status IN ('VALIDEE_DEPARTEMENT', 'VALIDEE_FINALE')
+      AND a.status IN ('VALIDEE_DEPARTEMENT','VALIDEE_FINALE')
     THEN ta.completed_hours
-      + (ta.new_course_hours * 1.5)
-      + CASE
-          WHEN ta.course_restructuring_approved = 1 THEN (ta.course_restructuring_percentage * 0.05)
-          ELSE 0
-        END
-      + ta.syllabus_count
-      + CASE WHEN ta.car_file_elaborated = 1 THEN 10 ELSE 0 END
-      + CASE WHEN ta.exam_elaborated = 1 THEN 5 ELSE 0 END
-      + (ta.evening_or_saturday_hours * 1.5)
-      + CASE WHEN ta.coordination = 1 THEN 5 ELSE 0 END
-      + CASE
-          WHEN ta.partnership_declaration_type = 'PROFESSIONNELLE' THEN 15
-          WHEN ta.partnership_declaration_type = 'ACADEMIQUE' THEN 12
-          ELSE 0
-        END
+       + (ta.new_course_hours * 1.5)
+       + CASE WHEN ta.course_restructuring_approved = 1 THEN (ta.course_restructuring_percentage * 0.05) ELSE 0 END
+       + ta.syllabus_count
+       + CASE WHEN ta.car_file_elaborated  = 1 THEN 10 ELSE 0 END
+       + CASE WHEN ta.exam_elaborated      = 1 THEN 5  ELSE 0 END
+       + (ta.evening_or_saturday_hours * 1.5)
+       + CASE WHEN ta.coordination         = 1 THEN 5  ELSE 0 END
+       + CASE
+           WHEN ta.partnership_declaration_type = 'PROFESSIONNELLE' THEN 15
+           WHEN ta.partnership_declaration_type = 'ACADEMIQUE'      THEN 12
+           ELSE 0
+         END
     ELSE 0
   END), 0) AS total_teaching_points,
-  COUNT(DISTINCT CASE
-    WHEN a.activity_type = 'ENCADREMENT' THEN a.id
-  END) AS supervision_count,
-  COUNT(DISTINCT CASE
-    WHEN a.activity_type = 'RECHERCHE' THEN a.id
-  END) AS research_count,
+  COUNT(DISTINCT CASE WHEN a.activity_type = 'ENCADREMENT' THEN a.id END) AS supervision_count,
+  COUNT(DISTINCT CASE WHEN a.activity_type = 'RECHERCHE'   THEN a.id END) AS research_count,
   COUNT(DISTINCT a.id) AS total_activities
 FROM users u
-LEFT JOIN departments d
-  ON d.id = u.department_id
-LEFT JOIN activities a
-  ON a.user_id = u.id
-LEFT JOIN teaching_activities ta
-  ON ta.activity_id = a.id
+LEFT JOIN departments d         ON d.id = u.department_id
+LEFT JOIN activities a          ON a.user_id = u.id
+LEFT JOIN teaching_activities ta ON ta.activity_id = a.id
 GROUP BY u.id, u.first_name, u.last_name, u.email, d.name;
 
 CREATE VIEW v_department_kpis AS
 SELECT
-  d.id AS department_id,
+  d.id   AS department_id,
   d.name AS department_name,
   COUNT(DISTINCT u.id) AS total_users,
   COUNT(DISTINCT a.id) AS total_activities,
-  COALESCE(SUM(CASE
-    WHEN a.activity_type = 'ENSEIGNEMENT' THEN ta.completed_hours
-    ELSE 0
-  END), 0) AS total_completed_hours,
+  COALESCE(SUM(CASE WHEN a.activity_type = 'ENSEIGNEMENT' THEN ta.completed_hours ELSE 0 END), 0) AS total_completed_hours,
   COALESCE(SUM(CASE
     WHEN a.activity_type = 'ENSEIGNEMENT'
-      AND a.status IN ('VALIDEE_DEPARTEMENT', 'VALIDEE_FINALE')
+      AND a.status IN ('VALIDEE_DEPARTEMENT','VALIDEE_FINALE')
     THEN ta.completed_hours
-      + (ta.new_course_hours * 1.5)
-      + CASE
-          WHEN ta.course_restructuring_approved = 1 THEN (ta.course_restructuring_percentage * 0.05)
-          ELSE 0
-        END
-      + ta.syllabus_count
-      + CASE WHEN ta.car_file_elaborated = 1 THEN 10 ELSE 0 END
-      + CASE WHEN ta.exam_elaborated = 1 THEN 5 ELSE 0 END
-      + (ta.evening_or_saturday_hours * 1.5)
-      + CASE WHEN ta.coordination = 1 THEN 5 ELSE 0 END
-      + CASE
-          WHEN ta.partnership_declaration_type = 'PROFESSIONNELLE' THEN 15
-          WHEN ta.partnership_declaration_type = 'ACADEMIQUE' THEN 12
-          ELSE 0
-        END
+       + (ta.new_course_hours * 1.5)
+       + CASE WHEN ta.course_restructuring_approved = 1 THEN (ta.course_restructuring_percentage * 0.05) ELSE 0 END
+       + ta.syllabus_count
+       + CASE WHEN ta.car_file_elaborated  = 1 THEN 10 ELSE 0 END
+       + CASE WHEN ta.exam_elaborated      = 1 THEN 5  ELSE 0 END
+       + (ta.evening_or_saturday_hours * 1.5)
+       + CASE WHEN ta.coordination         = 1 THEN 5  ELSE 0 END
+       + CASE
+           WHEN ta.partnership_declaration_type = 'PROFESSIONNELLE' THEN 15
+           WHEN ta.partnership_declaration_type = 'ACADEMIQUE'      THEN 12
+           ELSE 0
+         END
     ELSE 0
   END), 0) AS total_teaching_points,
-  COUNT(DISTINCT CASE
-    WHEN a.activity_type = 'ENCADREMENT' THEN a.id
-  END) AS total_supervisions,
-  COUNT(DISTINCT CASE
-    WHEN a.activity_type = 'RECHERCHE' THEN a.id
-  END) AS total_researches
+  COUNT(DISTINCT CASE WHEN a.activity_type = 'ENCADREMENT' THEN a.id END) AS total_supervisions,
+  COUNT(DISTINCT CASE WHEN a.activity_type = 'RECHERCHE'   THEN a.id END) AS total_researches
 FROM departments d
-LEFT JOIN users u
-  ON u.department_id = d.id
-LEFT JOIN activities a
-  ON a.user_id = u.id
-LEFT JOIN teaching_activities ta
-  ON ta.activity_id = a.id
+LEFT JOIN users u               ON u.department_id = d.id
+LEFT JOIN activities a          ON a.user_id = u.id
+LEFT JOIN teaching_activities ta ON ta.activity_id = a.id
 GROUP BY d.id, d.name;

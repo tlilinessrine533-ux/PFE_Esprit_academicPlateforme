@@ -98,16 +98,18 @@
     }
   }
 
-  <section class="generator-layout">
+  <section class="generator-layout" id="report-generation">
     <section class="panel">
       <p class="eyebrow">Generation</p>
       <h2 class="section-title">Creer un rapport</h2>
 
       <form class="report-form" [formGroup]="reportForm">
-        <label class="field">
-          <span>Annee universitaire</span>
-          <input formControlName="periodLabel" />
-        </label>
+        @if (canGenerateDepartment() || canGenerateInstitution()) {
+          <label class="field">
+            <span>Annee universitaire</span>
+            <input formControlName="periodLabel" placeholder="Ex: 2025-2026" />
+          </label>
+        }
 
         @if (canGenerateDepartment()) {
           <label class="field">
@@ -116,16 +118,32 @@
           </label>
         }
 
+        @if (canGenerateIndividual()) {
+          <p class="section-copy">
+            Cliquez sur Telecharger pour ouvrir le formulaire: choix d'annee universitaire puis questionnaire enseignant.
+          </p>
+        }
+
         <div class="generation-groups">
           @if (canGenerateIndividual()) {
             <div class="generation-group">
               <p class="eyebrow">Individuel</p>
               <div class="action-row">
-                <button class="primary-button" type="button" (click)="generatePdf()" [disabled]="isGenerating('individual-pdf')">
-                  {{ isGenerating('individual-pdf') ? 'Generation PDF...' : 'PDF individuel' }}
+                <button
+                  class="primary-button"
+                  type="button"
+                  (click)="startIndividualPdfDownload()"
+                  [disabled]="isGeneratingIndividualDownload()"
+                >
+                  {{ isGeneratingIndividualDownload() ? 'Generation...' : 'Telecharger PDF individuel' }}
                 </button>
-                <button class="ghost-button" type="button" (click)="generateExcel()" [disabled]="isGenerating('individual-excel')">
-                  {{ isGenerating('individual-excel') ? 'Generation Excel...' : 'Excel individuel' }}
+                <button
+                  class="ghost-button"
+                  type="button"
+                  (click)="startIndividualExcelDownload()"
+                  [disabled]="isGeneratingIndividualDownload()"
+                >
+                  Telecharger Excel individuel
                 </button>
               </div>
             </div>
@@ -163,6 +181,131 @@
     </section>
   </section>
 
+  @if (individualWizardOpen()) {
+    <div class="report-wizard-backdrop" (click)="closeIndividualDownloadWizard()" aria-hidden="true">
+      <section
+        class="panel report-wizard-dialog"
+        role="dialog"
+        aria-modal="true"
+        aria-label="Telechargement du rapport individuel"
+        (click)="$event.stopPropagation()"
+      >
+        <div class="report-wizard-header">
+          <div>
+            <p class="eyebrow">Rapport individuel</p>
+            <h2 class="section-title">Etape 1: choisissez l'annee universitaire</h2>
+            <p class="section-copy">Apres selection de l'annee, le formulaire s'affiche automatiquement.</p>
+          </div>
+          <button class="ghost-button" type="button" (click)="closeIndividualDownloadWizard()">Fermer</button>
+        </div>
+
+        <div class="year-picker-grid">
+          @if (loadingIndividualYears()) {
+            <span class="section-copy">Chargement des annees...</span>
+          } @else {
+            @for (year of availableIndividualAcademicYears(); track year) {
+              <button
+                class="year-picker-button"
+                type="button"
+                [class.is-selected]="selectedIndividualAcademicYear() === year"
+                (click)="selectIndividualAcademicYear(year)"
+              >
+                {{ year }}
+              </button>
+            }
+          }
+        </div>
+
+        @if (showIndividualQuestionnaire()) {
+          <form class="teacher-quiz" id="individual-questionnaire-form" [formGroup]="individualReportForm">
+            <div class="quiz-header">
+              <p class="eyebrow">Etape 2: formulaire</p>
+              <p class="section-copy">Les resultats de ce formulaire seront injectes dans le rapport genere.</p>
+            </div>
+
+            <section class="quiz-card">
+              <h3>4. Appreciation globale</h3>
+              <p class="section-copy">Selectionnez votre niveau de satisfaction globale.</p>
+              <div class="appreciation-grid">
+                @for (level of appreciationLevels; track level.value) {
+                  <label class="appreciation-option">
+                    <input type="radio" formControlName="appreciationLevel" [value]="level.value" />
+                    <span>{{ level.label }}</span>
+                  </label>
+                }
+              </div>
+            </section>
+
+            <section class="quiz-card">
+              <div class="quiz-card-header">
+                <h3>B. Objectifs pour l'annee a venir</h3>
+                <button class="ghost-button" type="button" (click)="addFutureObjective()">Ajouter un objectif</button>
+              </div>
+
+              <div class="objective-table" formArrayName="futureObjectives">
+                @for (objectiveGroup of futureObjectivesArray.controls; track $index) {
+                  <div class="objective-row" [formGroupName]="$index">
+                    <label class="field">
+                      <span>Objectif</span>
+                      <textarea rows="2" formControlName="objective" placeholder="Objectif prioritaire"></textarea>
+                    </label>
+                    <label class="field">
+                      <span>Delais</span>
+                      <input formControlName="timeline" placeholder="Ex: Semestre 1" />
+                    </label>
+                    <label class="field">
+                      <span>Moyens necessaires</span>
+                      <textarea
+                        rows="2"
+                        formControlName="requiredResources"
+                        placeholder="Budget, ressources, appui managerial"
+                      ></textarea>
+                    </label>
+                    <label class="field">
+                      <span>Indicateurs attendus</span>
+                      <textarea rows="2" formControlName="successIndicators" placeholder="Resultats attendus"></textarea>
+                    </label>
+                    <div class="objective-row-actions">
+                      <button
+                        class="link-button objective-remove-button"
+                        type="button"
+                        (click)="removeFutureObjective($index)"
+                        [disabled]="futureObjectivesArray.length <= 1"
+                      >
+                        Supprimer
+                      </button>
+                    </div>
+                  </div>
+                }
+              </div>
+            </section>
+          </form>
+        }
+
+        <div class="report-wizard-actions">
+          <button
+            class="ghost-button"
+            type="button"
+            (click)="downloadLatestIndividualArchive()"
+            [disabled]="isGeneratingIndividualDownload() || !latestIndividualArchive()"
+            title="Telecharge la version deja archivee (ancienne generation)"
+          >
+            Archive precedente
+          </button>
+          <button class="ghost-button" type="button" (click)="closeIndividualDownloadWizard()">Annuler</button>
+          <button
+            class="primary-button"
+            type="button"
+            (click)="confirmIndividualDownload()"
+            [disabled]="!showIndividualQuestionnaire() || isGeneratingIndividualDownload()"
+          >
+            {{ isGeneratingIndividualDownload() ? 'Generation en cours...' : individualWizardActionLabel() }}
+          </button>
+        </div>
+      </section>
+    </div>
+  }
+
   <section class="panel">
     <p class="eyebrow">Filtres</p>
     <div class="filters-grid">
@@ -192,27 +335,6 @@
       </label>
     </div>
   </section>
-
-  @if (latestReport(); as latest) {
-    <section class="panel latest-report-card">
-      <div>
-        <p class="eyebrow">Dernier livrable</p>
-        <h2 class="section-title">{{ reportTypeLabel(latest.reportType) }}</h2>
-        <p class="section-copy">
-          Genere le {{ latest.generatedAt | date: 'dd/MM/yyyy a HH:mm' }} pour l'annee universitaire
-          <strong>{{ latest.periodLabel }}</strong>.
-        </p>
-        @if (latest.departmentName) {
-          <p class="section-copy">Departement concerne : <strong>{{ latest.departmentName }}</strong>.</p>
-        }
-      </div>
-
-      <div class="latest-report-meta">
-        <span class="format-pill format-{{ reportFormatTone(latest.reportFormat) }}">{{ latest.reportFormat }}</span>
-        <button class="primary-button" type="button" (click)="downloadReport(latest)">Telecharger le dernier rapport</button>
-      </div>
-    </section>
-  }
 
   <section class="reports-layout">
     <section class="panel">
@@ -260,7 +382,9 @@
                 </td>
                 <td>{{ report.generatedAt | date: 'dd/MM/yyyy HH:mm' }}</td>
                 <td>
-                  <button class="link-button" type="button" (click)="downloadReport(report)">Telecharger</button>
+                  <button class="link-button" type="button" (click)="downloadReport(report)">
+                    {{ canGenerateIndividual() ? 'Archive' : 'Telecharger' }}
+                  </button>
                 </td>
               </tr>
             }

@@ -43,6 +43,9 @@ export interface DashboardTeacherBenchmarkItem {
   totalCompletedHours: number;
   totalTeachingPerformancePoints: number;
   validationRatePercent: number;
+  totalPromotionPoints: number;
+  calculatedPrime: number;
+  calculatedWeight: number;
 }
 
 export interface DashboardDepartmentBenchmarkItem {

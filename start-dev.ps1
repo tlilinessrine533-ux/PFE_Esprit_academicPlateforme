@@ -3,6 +3,7 @@ $ErrorActionPreference = 'Stop'
 $repoRoot = Split-Path -Parent $MyInvocation.MyCommand.Path
 $backendDir = Join-Path $repoRoot 'backend'
 $frontendDir = Join-Path $repoRoot 'frontend'
+$rootEnvFile = Join-Path $repoRoot '.env'
 $mailEnvFile = Join-Path $backendDir '.mail.env'
 
 $backendStdout = Join-Path $backendDir 'backend-live.stdout.log'
@@ -125,6 +126,11 @@ function Import-KeyValueEnvFile {
         }
 
         Set-Item -Path "Env:$name" -Value $value
+
+        $normalizedName = ($name -replace '[\.\-]', '_').ToUpperInvariant()
+        if ($normalizedName -and $normalizedName -ne $name) {
+            Set-Item -Path "Env:$normalizedName" -Value $value
+        }
     }
 
     return $true
@@ -167,6 +173,10 @@ function Start-LoggedProcess {
 
 $maven = Get-Command mvn.cmd -ErrorAction Stop
 $npm = Get-Command npm.cmd -ErrorAction Stop
+
+if (Import-KeyValueEnvFile -Path $rootEnvFile) {
+    Write-Host "Loaded environment values from $rootEnvFile."
+}
 
 if (Import-KeyValueEnvFile -Path $mailEnvFile) {
     Write-Host "Loaded mail configuration from $mailEnvFile."
