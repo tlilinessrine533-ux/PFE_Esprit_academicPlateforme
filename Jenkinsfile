@@ -92,6 +92,25 @@ pipeline {
 
         /**************** ACCEPTANCE / QA PHASE ****************/
 
+        // RAM hote tres limitee : on demarre SonarQube uniquement pour cette etape,
+        // puis on l'arrete pour laisser la RAM aux etapes suivantes (Docker build, Trivy, ZAP).
+        stage('Start SonarQube') {
+            steps {
+                sh '''
+                    docker network inspect devsecops-net >/dev/null 2>&1 || docker network create devsecops-net
+                    docker start sonarqube || docker run -d --name sonarqube --network devsecops-net -p 9000:9000 sonarqube:lts-community
+                    echo "Attente du demarrage de SonarQube..."
+                    for i in $(seq 1 30); do
+                        if curl -s -o /dev/null http://localhost:9000; then
+                            echo "SonarQube est pret."
+                            break
+                        fi
+                        sleep 10
+                    done
+                '''
+            }
+        }
+
         stage('SAST - SonarQube Analysis') {
             steps {
                 dir('backend') {
@@ -104,6 +123,12 @@ pipeline {
                         """
                     }
                 }
+            }
+        }
+
+        stage('Stop SonarQube') {
+            steps {
+                sh 'docker stop sonarqube || true'
             }
         }
 
@@ -214,11 +239,34 @@ pipeline {
 
         /**************** PRODUCTION PHASE ****************/
 
+        stage('Start Nexus') {
+            steps {
+                sh '''
+                    docker network inspect devsecops-net >/dev/null 2>&1 || docker network create devsecops-net
+                    docker start nexus || docker run -d --name nexus --network devsecops-net -p 8081:8081 sonatype/nexus3:latest
+                    echo "Attente du demarrage de Nexus..."
+                    for i in $(seq 1 30); do
+                        if curl -s -o /dev/null http://localhost:8081; then
+                            echo "Nexus est pret."
+                            break
+                        fi
+                        sleep 10
+                    done
+                '''
+            }
+        }
+
         stage('Deploy to Nexus') {
             steps {
                 dir('backend') {
                     sh "mvn deploy -DskipTests -DaltDeploymentRepository=${NEXUS_REPO_ID}::default::${NEXUS_URL}"
                 }
+            }
+        }
+
+        stage('Stop Nexus') {
+            steps {
+                sh 'docker stop nexus || true'
             }
         }
 
@@ -248,8 +296,11 @@ pipeline {
 
         stage('Start Monitoring Containers') {
             steps {
-                sh 'docker start prometheus || true'
-                sh 'docker start grafana || true'
+                sh '''
+                    docker network inspect devsecops-net >/dev/null 2>&1 || docker network create devsecops-net
+                    docker start prometheus || docker run -d --name prometheus --network devsecops-net -p 9090:9090 -v /vagrant/devops/monitoring/prometheus.yml:/etc/prometheus/prometheus.yml:ro prom/prometheus:latest
+                    docker start grafana || docker run -d --name grafana --network devsecops-net -p 3000:3000 -e GF_SECURITY_ADMIN_USER=admin -e GF_SECURITY_ADMIN_PASSWORD=admin -v /vagrant/devops/monitoring/grafana/datasources:/etc/grafana/provisioning/datasources:ro grafana/grafana:latest
+                '''
             }
         }
 
