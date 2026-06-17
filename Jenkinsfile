@@ -261,7 +261,7 @@ pipeline {
                     from: '',
                     replyTo: '',
                     subject: 'Succes de la pipeline DevSecOps - Academic Platform',
-                    to: 'mehrezrabah2@gmail.com'
+                    to: 't95135876@gmail.com'
             }
         }
     }
@@ -272,7 +272,7 @@ pipeline {
                 emailext(
                     subject: "Build Success: ${currentBuild.fullDisplayName}",
                     body: "Le build a reussi ! Consultez les details a ${env.BUILD_URL}",
-                    to: 'mehrezrabah2@gmail.com'
+                    to: 't95135876@gmail.com'
                 )
             }
         }
@@ -281,7 +281,7 @@ pipeline {
                 emailext(
                     subject: "Build Failed: ${currentBuild.fullDisplayName}",
                     body: "Le build a echoue. Consultez les details a ${env.BUILD_URL}",
-                    to: 'mehrezrabah2@gmail.com'
+                    to: 't95135876@gmail.com'
                 )
             }
         }
