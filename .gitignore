@@ -41,3 +41,6 @@ backend/...m2repository/
 
 # Misc local files
 structure.txt
+
+# Vagrant local VM state
+.vagrant/

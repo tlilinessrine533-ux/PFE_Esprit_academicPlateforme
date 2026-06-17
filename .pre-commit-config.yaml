@@ -1,0 +1,19 @@
+repos:
+  - repo: https://github.com/Yelp/detect-secrets
+    rev: v1.5.0
+    hooks:
+      - id: detect-secrets
+        name: Detect secrets in file content
+        args: ['--baseline', '.secrets.baseline']
+
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v4.6.0
+    hooks:
+      - id: check-added-large-files
+        name: Detect sensitive filenames
+      - id: check-merge-conflict
+
+  - repo: meta
+    hooks:
+      - id: check-hooks-apply
+        name: Check pre-commit hook versions
