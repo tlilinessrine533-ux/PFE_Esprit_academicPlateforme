@@ -115,12 +115,13 @@ pipeline {
             steps {
                 dir('backend') {
                     withCredentials([string(credentialsId: 'sonarqube-token', variable: 'SONAR_AUTH_TOKEN')]) {
-                        sh """
+                        sh '''
+                            echo "Token length (diagnostic): ${#SONAR_AUTH_TOKEN}"
                             mvn sonar:sonar \
-                                -Dsonar.projectKey=${SONAR_PROJECT_KEY}-backend \
-                                -Dsonar.host.url=${SONAR_HOST_URL} \
-                                -Dsonar.token=${SONAR_AUTH_TOKEN}
-                        """
+                                -Dsonar.projectKey=academic-platform-backend \
+                                -Dsonar.host.url=http://localhost:9000 \
+                                -Dsonar.token=$SONAR_AUTH_TOKEN
+                        '''
                     }
                 }
             }
