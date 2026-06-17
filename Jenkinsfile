@@ -84,7 +84,7 @@ pipeline {
                 dir('frontend') {
                     sh 'node --version'
                     sh 'npm --version'
-                    sh 'npm ci'
+                    sh 'npm install'
                     sh 'npx ng build --configuration production'
                 }
             }
