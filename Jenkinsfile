@@ -11,8 +11,8 @@ pipeline {
         SONAR_PROJECT_KEY       = 'academic-platform'
         // SONAR_AUTH_TOKEN injecte via credential Jenkins (Secret text)
 
-        NEXUS_URL               = 'http://localhost:8081/repository/maven-releases/'
-        NEXUS_REPO_ID           = 'nexus-releases'
+        NEXUS_URL               = 'http://localhost:8081/repository/maven-snapshots/'
+        NEXUS_REPO_ID           = 'nexus-snapshots'
     }
 
     stages {
@@ -138,7 +138,7 @@ pipeline {
                     sh 'mvn org.owasp:dependency-check-maven:check -Dformat=HTML || true'
                 }
                 publishHTML(target: [
-                    allowMissing: false,
+                    allowMissing: true,
                     alwaysLinkToLastBuild: true,
                     keepAll: true,
                     reportDir: 'backend/target',

@@ -44,3 +44,6 @@ structure.txt
 
 # Vagrant local VM state
 .vagrant/
+
+# Local Maven settings with Nexus credentials (do not commit)
+devops/settings.xml
