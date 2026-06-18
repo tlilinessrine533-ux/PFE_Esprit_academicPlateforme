@@ -306,13 +306,11 @@ pipeline {
 
         stage('Email Notification') {
             steps {
-                mail bcc: '',
-                    body: 'Final Report: The pipeline has completed successfully. No action required.',
-                    cc: '',
-                    from: '',
-                    replyTo: '',
+                emailext(
                     subject: 'Succes de la pipeline DevSecOps - Academic Platform',
+                    body: 'Final Report: The pipeline has completed successfully. No action required.',
                     to: 't95135876@gmail.com'
+                )
             }
         }
     }
