@@ -1,6 +1,10 @@
-// Webhook auto-trigger test 2 (after disk cleanup)
 pipeline {
     agent any
+
+    options {
+        // Limite la RAM/disque (VM 8 Go) : ne garder que les 5 derniers builds
+        buildDiscarder(logRotator(numToKeepStr: '5'))
+    }
 
     environment {
         DOCKERHUB_CREDENTIALS = 'dockerhub-credentials'
@@ -291,6 +295,12 @@ pipeline {
                     sh "docker tag ${IMAGE_FRONTEND}:${TAG} ${DOCKER_USER}/${IMAGE_FRONTEND}:latest"
                     sh "docker push ${DOCKER_USER}/${IMAGE_FRONTEND}:${TAG}"
                     sh "docker push ${DOCKER_USER}/${IMAGE_FRONTEND}:latest"
+
+                    // Liberer l'espace disque local (VM 8 Go) une fois les images poussees
+                    sh """
+                        docker rmi ${IMAGE_BACKEND}:${TAG} ${DOCKER_USER}/${IMAGE_BACKEND}:${TAG} ${DOCKER_USER}/${IMAGE_BACKEND}:latest || true
+                        docker rmi ${IMAGE_FRONTEND}:${TAG} ${DOCKER_USER}/${IMAGE_FRONTEND}:${TAG} ${DOCKER_USER}/${IMAGE_FRONTEND}:latest || true
+                    """
                 }
             }
         }
