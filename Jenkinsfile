@@ -259,7 +259,9 @@ pipeline {
         stage('Deploy to Nexus') {
             steps {
                 dir('backend') {
-                    sh "mvn deploy -DskipTests -DaltDeploymentRepository=${NEXUS_REPO_ID}::default::${NEXUS_URL}"
+                    retry(3) {
+                        sh "mvn deploy -DskipTests -DaltDeploymentRepository=${NEXUS_REPO_ID}::default::${NEXUS_URL}"
+                    }
                 }
             }
         }
@@ -306,11 +308,13 @@ pipeline {
 
         stage('Email Notification') {
             steps {
-                emailext(
-                    subject: 'Succes de la pipeline DevSecOps - Academic Platform',
-                    body: 'Final Report: The pipeline has completed successfully. No action required.',
-                    to: 't95135876@gmail.com'
-                )
+                retry(3) {
+                    emailext(
+                        subject: 'Succes de la pipeline DevSecOps - Academic Platform',
+                        body: 'Final Report: The pipeline has completed successfully. No action required.',
+                        to: 't95135876@gmail.com'
+                    )
+                }
             }
         }
     }
