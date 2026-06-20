@@ -103,7 +103,12 @@ export class ForgotPasswordPageComponent {
       next: (response) => {
         this.recoverySubmitting.set(false);
         this.recoveryStep.set('confirm');
-        this.recoverySuccessMessage.set(`${response.message} Saisissez le code recu et choisissez un nouveau mot de passe.`);
+        const demoCodeNotice = response.verificationCode
+          ? ` Code (mode demo, aucun SMS reel envoye) : ${response.verificationCode}`
+          : '';
+        this.recoverySuccessMessage.set(
+          `${response.message} Saisissez le code recu et choisissez un nouveau mot de passe.${demoCodeNotice}`
+        );
         this.resetConfirmForm.patchValue({
           contact,
           code: '',

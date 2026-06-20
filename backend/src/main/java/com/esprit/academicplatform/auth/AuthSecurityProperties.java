@@ -22,5 +22,6 @@ public class AuthSecurityProperties {
     private String passwordResetSender = "no-reply@esprit.tn";
     private String passwordResetSubject = "Code de verification de votre compte ESPRIT";
     private boolean logPasswordResetCode = true;
+    private boolean smsDemoMode = true;
     private double faceRecognitionMatchThreshold = 0.48d;
 }

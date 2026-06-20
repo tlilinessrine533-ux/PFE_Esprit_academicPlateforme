@@ -14,7 +14,9 @@ import java.util.ArrayList;
 import java.util.Base64;
 import java.util.EnumSet;
 import java.util.List;
+import java.util.concurrent.atomic.AtomicReference;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
@@ -24,6 +26,7 @@ import org.springframework.web.server.ResponseStatusException;
 import com.esprit.academicplatform.auth.dto.PhonePasswordResetRequest;
 import com.esprit.academicplatform.auth.dto.PhonePasswordResetConfirmRequest;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class AuthService {
@@ -548,6 +551,7 @@ public class AuthService {
     @Transactional
 public AuthInfoResponse requestPasswordResetByPhone(PhonePasswordResetRequest request) {
     String normalizedPhone = normalizePhoneNumber(request.phoneNumber());
+    AtomicReference<String> demoVerificationCode = new AtomicReference<>();
 
     userRepository.findByPhoneNumber(normalizedPhone)
         .filter(User::isActive)
@@ -563,11 +567,20 @@ public AuthInfoResponse requestPasswordResetByPhone(PhonePasswordResetRequest re
 
             authSecurityStateRepository.save(authSecurityState);
 
-          smsService.sendPasswordResetCode(normalizedPhone, verificationCode);
-          System.out.println("PHONE RESET OTP for " + normalizedPhone + " = " + verificationCode);
+            if (authSecurityProperties.isSmsDemoMode()) {
+                log.warn("SMS demo mode: verification code for {} is {} (no real SMS sent).", normalizedPhone, verificationCode);
+                demoVerificationCode.set(verificationCode);
+                return;
+            }
+
+            try {
+                smsService.sendPasswordResetCode(normalizedPhone, verificationCode);
+            } catch (RuntimeException exception) {
+                log.warn("Failed to send SMS verification code to {}: {}", normalizedPhone, exception.getMessage());
+            }
         });
 
-    return new AuthInfoResponse(PHONE_RESET_REQUEST_MESSAGE);
+    return new AuthInfoResponse(PHONE_RESET_REQUEST_MESSAGE, demoVerificationCode.get());
 }
 
 @Transactional

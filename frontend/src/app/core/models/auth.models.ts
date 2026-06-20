@@ -59,6 +59,7 @@ export interface PhonePasswordResetConfirmPayload {
 
 export interface AuthInfoResponse {
   message: string;
+  verificationCode?: string | null;
 }
 
 export interface AuthSession extends AuthResponse {

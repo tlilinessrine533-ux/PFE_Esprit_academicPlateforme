@@ -26,6 +26,10 @@
   gap: 1rem;
 }
 
+.metric-grid + .users-dashboard-grid {
+  margin-top: 0.85rem;
+}
+
 .users-dashboard-grid--single {
   grid-template-columns: 1fr;
 }

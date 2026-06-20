@@ -4,6 +4,9 @@ pipeline {
     options {
         // Limite la RAM/disque (VM 8 Go) : ne garder que les 5 derniers builds
         buildDiscarder(logRotator(numToKeepStr: '5'))
+        // RAM tres limitee : un seul build a la fois (sinon SonarQube/Nexus demarres
+        // par 2 builds en parallele saturent la VM et causent un thrashing memoire)
+        disableConcurrentBuilds()
     }
 
     environment {

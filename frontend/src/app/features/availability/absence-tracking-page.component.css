@@ -18,6 +18,10 @@
   align-items: end;
 }
 
+.period-form .field {
+  margin-bottom: 0;
+}
+
 .section-header {
   display: flex;
   justify-content: space-between;
